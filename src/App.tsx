@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { SkillList } from './components/SkillList';
@@ -17,6 +18,23 @@ function App() {
 
   useEffect(() => {
     invoke<string | null>('get_project_path').then(setProjectPath);
+  }, []);
+
+  const handleChangeProject = useCallback(async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'スキルを管理したいプロジェクトを選んでください',
+      });
+
+      if (selected && typeof selected === 'string') {
+        await invoke('set_project_path', { path: selected });
+        setProjectPath(selected);
+      }
+    } catch (err) {
+      console.error('Failed to select folder:', err);
+    }
   }, []);
 
   const {
@@ -103,6 +121,8 @@ function App() {
         onSearchChange={setSearchQuery}
         totalSkills={totalSkills}
         enabledSkills={enabledSkills}
+        projectPath={projectPath}
+        onChangeProject={handleChangeProject}
       />
 
       <CategoryTabs
