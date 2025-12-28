@@ -31,6 +31,7 @@ fn get_app_path() -> Option<PathBuf> {
     std::env::current_exe().ok()
 }
 
+#[cfg(target_os = "macos")]
 fn get_app_bundle_path() -> Option<PathBuf> {
     // SkillManager.app/Contents/MacOS/app → SkillManager.app
     get_app_path()
@@ -39,10 +40,35 @@ fn get_app_bundle_path() -> Option<PathBuf> {
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // SkillManager.app/
 }
 
-fn get_base_dir() -> Option<PathBuf> {
-    // アプリの親ディレクトリ（.claude/を期待）
-    get_app_bundle_path()
+#[cfg(target_os = "windows")]
+fn get_app_bundle_path() -> Option<PathBuf> {
+    // Windows: exe のあるディレクトリ
+    get_app_path()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn get_app_bundle_path() -> Option<PathBuf> {
+    get_app_path()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+}
+
+fn get_base_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: SkillManager.app の親ディレクトリ（.claude/を期待）
+        get_app_bundle_path()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: exe のあるディレクトリ自体が .claude/
+        get_app_bundle_path()
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        get_app_bundle_path()
+    }
 }
 
 fn is_in_claude_dir() -> bool {
@@ -87,22 +113,19 @@ fn copy_app_to_project(project_path: String) -> Result<(), String> {
     // .claudeディレクトリを作成
     fs::create_dir_all(&target_dir).map_err(|e| format!("Failed to create .claude directory: {}", e))?;
 
-    // 現在のアプリバンドルのパスを取得
-    let app_bundle = get_app_bundle_path().ok_or("Could not find app bundle")?;
-    let app_name = app_bundle.file_name().ok_or("Could not get app name")?;
-    let target_app = target_dir.join(app_name);
-
-    // 既存のアプリを削除
-    if target_app.exists() {
-        fs::remove_dir_all(&target_app).map_err(|e| format!("Failed to remove existing app: {}", e))?;
-    }
-
-    // アプリをコピー
-    copy_dir_all(&app_bundle, &target_app).map_err(|e| format!("Failed to copy app: {}", e))?;
-
-    // コピー先のアプリを起動
     #[cfg(target_os = "macos")]
     {
+        // macOS: .appバンドルをコピー
+        let app_bundle = get_app_bundle_path().ok_or("Could not find app bundle")?;
+        let app_name = app_bundle.file_name().ok_or("Could not get app name")?;
+        let target_app = target_dir.join(app_name);
+
+        if target_app.exists() {
+            fs::remove_dir_all(&target_app).map_err(|e| format!("Failed to remove existing app: {}", e))?;
+        }
+
+        copy_dir_all(&app_bundle, &target_app).map_err(|e| format!("Failed to copy app: {}", e))?;
+
         Command::new("open")
             .arg(&target_app)
             .spawn()
@@ -111,8 +134,18 @@ fn copy_app_to_project(project_path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        let exe_path = target_app.join("SkillManager.exe");
-        Command::new(&exe_path)
+        // Windows: exeファイルをコピー
+        let exe_path = get_app_path().ok_or("Could not find exe path")?;
+        let exe_name = exe_path.file_name().ok_or("Could not get exe name")?;
+        let target_exe = target_dir.join(exe_name);
+
+        if target_exe.exists() {
+            fs::remove_file(&target_exe).map_err(|e| format!("Failed to remove existing exe: {}", e))?;
+        }
+
+        fs::copy(&exe_path, &target_exe).map_err(|e| format!("Failed to copy exe: {}", e))?;
+
+        Command::new(&target_exe)
             .spawn()
             .map_err(|e| format!("Failed to launch app: {}", e))?;
     }
