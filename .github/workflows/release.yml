@@ -65,10 +65,22 @@ jobs:
 
       - run: npm run tauri build
 
-      - name: Zip exe
+      - name: Find and zip exe
         shell: pwsh
         run: |
-          Compress-Archive -Path "src-tauri/target/release/SkillManager.exe" -DestinationPath "SkillManager_windows.zip"
+          # List what was built
+          Write-Host "Contents of release directory:"
+          Get-ChildItem -Path "src-tauri/target/release" -File | Where-Object { $_.Extension -eq ".exe" }
+
+          # Find the exe (could be SkillManager.exe or app.exe)
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" | Where-Object { $_.Name -notmatch "build-script" } | Select-Object -First 1
+          if ($exe) {
+            Write-Host "Found exe: $($exe.FullName)"
+            Compress-Archive -Path $exe.FullName -DestinationPath "SkillManager_windows.zip"
+          } else {
+            Write-Host "No exe found in release directory"
+            exit 1
+          }
 
       - uses: actions/upload-artifact@v4
         with:
