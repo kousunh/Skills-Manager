@@ -30,6 +30,13 @@ xattr -cr /path/to/SkillManager.app
 xattr -cr ~/Downloads/SkillManager.app
 ```
 
+### Windows: SmartScreenの警告
+
+「WindowsによってPCが保護されました」と表示される場合：
+
+1. 「詳細情報」をクリック
+2. 「実行」をクリック
+
 別のプロジェクトで使う場合は `.claude/SkillManager.app`（または `.exe`）をコピーしてください。
 
 ## 機能
