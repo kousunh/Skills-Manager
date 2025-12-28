@@ -1,0 +1,94 @@
+import type { Skill, SkillFile } from '../types';
+import { SkillCard } from './SkillCard';
+
+interface SkillListProps {
+  skills: Skill[];
+  selectedSkill: Skill | null;
+  onSelectSkill: (skill: Skill) => void;
+  onToggleSkill: (skillName: string) => void;
+  onEnableAll: () => void;
+  onDisableAll: () => void;
+  searchQuery?: string;
+  onFileSelect?: (file: SkillFile | null) => void;
+  selectedFile?: SkillFile | null;
+}
+
+export function SkillList({
+  skills,
+  selectedSkill,
+  onSelectSkill,
+  onToggleSkill,
+  onEnableAll,
+  onDisableAll,
+  searchQuery,
+  onFileSelect,
+  selectedFile
+}: SkillListProps) {
+  const enabledCount = skills.filter(s => s.enabled).length;
+  const totalCount = skills.length;
+
+  if (skills.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
+        <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+        <p className="text-center">
+          {searchQuery
+            ? `「${searchQuery}」に一致するスキルがありません`
+            : 'このカテゴリにはスキルがありません'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header with controls */}
+      <div className="flex items-center justify-between sticky top-0 bg-gray-100 py-2 z-10">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="font-medium text-gray-700">{totalCount}件</span>
+          <span>({enabledCount}件 有効)</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onEnableAll}
+            disabled={enabledCount === totalCount}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors border border-green-200"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            全てON
+          </button>
+          <button
+            onClick={onDisableAll}
+            disabled={enabledCount === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-50 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors border border-gray-200"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            全てOFF
+          </button>
+        </div>
+      </div>
+
+      {/* Skill cards */}
+      <div className="flex flex-col gap-2">
+        {skills.map((skill) => (
+          <SkillCard
+            key={skill.name}
+            skill={skill}
+            isSelected={selectedSkill?.name === skill.name}
+            onSelect={() => onSelectSkill(skill)}
+            onToggle={() => onToggleSkill(skill.name)}
+            searchHighlight={searchQuery}
+            onFileSelect={onFileSelect}
+            selectedFile={selectedSkill?.name === skill.name ? selectedFile : undefined}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
