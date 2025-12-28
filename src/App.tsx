@@ -41,9 +41,21 @@ function App() {
     removeCategory,
     renameCategory,
     reorderCategories,
+    reload,
     loading,
     error
   } = useSkills(isSetup === true);
+
+  // 1分ごとに自動更新
+  useEffect(() => {
+    if (isSetup !== true) return;
+
+    const interval = setInterval(() => {
+      reload();
+    }, 60000); // 60秒 = 1分
+
+    return () => clearInterval(interval);
+  }, [isSetup, reload]);
 
   // 検索フィルター
   const filteredSkills = useMemo(() => {
@@ -101,6 +113,7 @@ function App() {
     <div className="h-screen flex flex-col bg-gray-100">
       <Header
         onSettingsClick={() => setShowSettings(true)}
+        onReloadClick={reload}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         totalSkills={totalSkills}

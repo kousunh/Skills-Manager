@@ -53,41 +53,43 @@ export function useSkills(isReady: boolean) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // リロード関数
+  const reload = useCallback(async () => {
+    if (!isReady) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [loadedSkills, loadedConfig] = await Promise.all([
+        invoke<Skill[]>('load_skills'),
+        invoke<Config>('load_config')
+      ]);
+
+      setSkills(loadedSkills);
+      const normalizedConfig = normalizeConfig(loadedSkills, loadedConfig);
+      setConfig(normalizedConfig);
+
+      // Set initial category
+      const cats = normalizedConfig.categoryOrder || [];
+      if (cats.length > 0 && !cats.includes(selectedCategory)) {
+        setSelectedCategory(cats[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load data:', err);
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [isReady, selectedCategory]);
+
   // Load skills and config when ready
   useEffect(() => {
     if (!isReady) {
       setLoading(false);
       return;
     }
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const [loadedSkills, loadedConfig] = await Promise.all([
-          invoke<Skill[]>('load_skills'),
-          invoke<Config>('load_config')
-        ]);
-
-        setSkills(loadedSkills);
-        const normalizedConfig = normalizeConfig(loadedSkills, loadedConfig);
-        setConfig(normalizedConfig);
-
-        // Set initial category
-        const cats = normalizedConfig.categoryOrder || [];
-        if (cats.length > 0 && !cats.includes(selectedCategory)) {
-          setSelectedCategory(cats[0]);
-        }
-      } catch (err) {
-        console.error('Failed to load data:', err);
-        setError(String(err));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+    reload();
   }, [isReady]);
 
   // Save config when it changes
@@ -298,6 +300,7 @@ export function useSkills(isReady: boolean) {
     removeCategory,
     renameCategory,
     reorderCategories,
+    reload,
     loading,
     error
   };

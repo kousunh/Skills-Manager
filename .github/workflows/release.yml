@@ -91,6 +91,14 @@ jobs:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from tauri.conf.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -98,9 +106,11 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: build-${{ github.run_number }}
-          name: SkillManager Build #${{ github.run_number }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: SkillManager v${{ steps.version.outputs.version }}
           body: |
+            ## SkillManager v${{ steps.version.outputs.version }}
+
             Portable builds from commit ${{ github.sha }}
 
             **macOS**: Unzip and copy `SkillManager.app` to your project's `.claude/` folder

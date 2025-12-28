@@ -308,7 +308,8 @@ export function CategoryEditor({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t flex justify-end">
+        <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
+          <span className="text-xs text-gray-400">Version {__APP_VERSION__}</span>
           <button
             onClick={onClose}
             className="px-6 py-2.5 bg-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-300 transition-colors"
