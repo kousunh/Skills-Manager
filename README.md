@@ -1,6 +1,6 @@
 # SkillManager
 
-Claude Codeのスキルを管理するGUIアプリです。
+Claude Code・Codex(動作未確認)のAgents Skillsを管理するGUIアプリです。
 
 ## インストール
 
@@ -16,6 +16,7 @@ Claude Codeのスキルを管理するGUIアプリです。
 2. アプリを起動
 3. プロジェクトフォルダを選択
 4. アプリが自動で `.claude/` にコピーされ、そこから起動
+5. 以降はプロジェクトフォルダの`.claude/`内のアプリファイルから起動してください。
 
 ### macOS: 「壊れているため開けません」エラーの対処
 
@@ -44,17 +45,7 @@ xattr -cr ~/Downloads/SkillManager.app
 - スキルの有効/無効切り替え
 - カテゴリ管理
 - スキルの検索
-- SKILL.mdのプレビュー
+- SKILL.mdや付属リファレンスのプレビュー・編集
 
-## 開発
-
-```bash
-npm install
-npm run tauri:dev
-```
-
-## ビルド
-
-```bash
-npm run tauri:build
-```
+## MIT
+MITライセンスとして、このプロジェクトは自由に改変して頂いて構いません。
