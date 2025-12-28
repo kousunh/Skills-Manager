@@ -138,14 +138,37 @@ export function useSkills(isReady: boolean) {
     return counts;
   }, [config.categories, skills]);
 
+  const updateSkillPaths = useCallback((skill: Skill, newEnabled: boolean): Skill => {
+    // パスの置換: skills/ <-> disabled-skills/
+    const updatePath = (path: string): string => {
+      if (newEnabled) {
+        // disabled-skills/ -> skills/
+        return path.replace(/\/disabled-skills\//, '/skills/');
+      } else {
+        // skills/ -> disabled-skills/
+        return path.replace(/\/skills\//, '/disabled-skills/');
+      }
+    };
+
+    return {
+      ...skill,
+      enabled: newEnabled,
+      path: updatePath(skill.path),
+      files: skill.files.map(file => ({
+        ...file,
+        path: updatePath(file.path),
+      })),
+    };
+  }, []);
+
   const setEnabledForSkillNames = useCallback((skillNames: string[], enabled: boolean) => {
     setSkills(prev => prev.map(skill =>
-      skillNames.includes(skill.name) ? { ...skill, enabled } : skill
+      skillNames.includes(skill.name) ? updateSkillPaths(skill, enabled) : skill
     ));
     setSelectedSkill(prev =>
-      prev && skillNames.includes(prev.name) ? { ...prev, enabled } : prev
+      prev && skillNames.includes(prev.name) ? updateSkillPaths(prev, enabled) : prev
     );
-  }, []);
+  }, [updateSkillPaths]);
 
   const toggleSkill = useCallback(async (skillName: string) => {
     const skill = skills.find(s => s.name === skillName);

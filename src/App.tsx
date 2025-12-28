@@ -127,7 +127,6 @@ function App() {
         skillCounts={skillCounts}
         enabledCounts={enabledCounts}
         onAddCategory={addCategory}
-        onReorderCategories={reorderCategories}
       />
 
       <div className="flex-1 flex gap-4 p-4 overflow-hidden">
