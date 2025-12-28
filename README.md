@@ -1,4 +1,4 @@
-# SkillManager
+# Skills-Manager
 
 Claude Code・Codex(動作未確認)のAgents Skillsを管理するGUIアプリです。
 
