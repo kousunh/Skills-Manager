@@ -10,6 +10,9 @@ on:
       - '.github/**'
       - 'LICENSE'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -52,9 +55,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'SkillManager ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
+          tagName: build-${{ github.run_number }}
+          releaseName: 'SkillManager Build #${{ github.run_number }}'
+          releaseBody: 'Automated build from commit ${{ github.sha }}'
           releaseDraft: false
-          prerelease: false
+          prerelease: true
           args: ${{ matrix.args }}
