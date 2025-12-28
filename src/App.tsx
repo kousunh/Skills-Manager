@@ -11,7 +11,6 @@ import type { SkillFile } from './types';
 
 function App() {
   const [isSetup, setIsSetup] = useState<boolean | undefined>(undefined);
-  const [projectPath, setProjectPath] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(null);
@@ -20,10 +19,6 @@ function App() {
     const checkSetup = async () => {
       const setup = await invoke<boolean>('check_setup');
       setIsSetup(setup);
-      if (setup) {
-        const path = await invoke<string | null>('get_current_project_path');
-        setProjectPath(path);
-      }
     };
     checkSetup();
   }, []);
@@ -109,7 +104,6 @@ function App() {
         onSearchChange={setSearchQuery}
         totalSkills={totalSkills}
         enabledSkills={enabledSkills}
-        projectPath={projectPath || ''}
       />
 
       <CategoryTabs

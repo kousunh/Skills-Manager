@@ -4,7 +4,6 @@ interface HeaderProps {
   onSearchChange: (query: string) => void;
   totalSkills: number;
   enabledSkills: number;
-  projectPath: string;
 }
 
 export function Header({
@@ -13,9 +12,7 @@ export function Header({
   onSearchChange,
   totalSkills,
   enabledSkills,
-  projectPath
 }: HeaderProps) {
-  const displayPath = projectPath.split('/').slice(-2).join('/');
 
   return (
     <header className="bg-gradient-to-r from-slate-800 to-slate-900 text-white px-6 py-4">
@@ -68,16 +65,6 @@ export function Header({
                 </svg>
               </button>
             )}
-          </div>
-
-          <div
-            className="flex items-center gap-2 px-3 py-2 bg-slate-700/50 rounded-lg"
-            title={projectPath}
-          >
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
-            <span className="text-sm text-slate-300 max-w-32 truncate">{displayPath}</span>
           </div>
 
           <button
