@@ -14,50 +14,87 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-macos:
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            args: --target aarch64-apple-darwin
-          - platform: macos-latest
-            args: --target x86_64-apple-darwin
-          - platform: windows-latest
-            args: ''
-
-    runs-on: ${{ matrix.platform }}
-
+          - target: aarch64-apple-darwin
+            arch: aarch64
+          - target: x86_64-apple-darwin
+            arch: x64
+    runs-on: macos-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install target (macOS)
-        if: matrix.platform == 'macos-latest'
-        run: |
-          rustup target add aarch64-apple-darwin
-          rustup target add x86_64-apple-darwin
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          tagName: build-${{ github.run_number }}
-          releaseName: 'SkillManager Build #${{ github.run_number }}'
-          releaseBody: 'Automated build from commit ${{ github.sha }}'
-          releaseDraft: false
+          targets: ${{ matrix.target }}
+
+      - run: npm ci
+
+      - run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: Zip app
+        run: |
+          cd src-tauri/target/${{ matrix.target }}/release/bundle/macos
+          zip -r SkillManager_${{ matrix.arch }}_macos.zip SkillManager.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/macos/SkillManager_${{ matrix.arch }}_macos.zip
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: npm ci
+
+      - run: npm run tauri build
+
+      - name: Zip exe
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "src-tauri/target/release/SkillManager.exe" -DestinationPath "SkillManager_windows.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: SkillManager_windows.zip
+
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: SkillManager Build #${{ github.run_number }}
+          body: |
+            Portable builds from commit ${{ github.sha }}
+
+            **macOS**: Unzip and copy `SkillManager.app` to your project's `.claude/` folder
+            **Windows**: Unzip and copy `SkillManager.exe` to your project's `.claude/` folder
           prerelease: true
-          args: ${{ matrix.args }}
+          files: |
+            artifacts/macos-aarch64/*.zip
+            artifacts/macos-x64/*.zip
+            artifacts/windows/*.zip
