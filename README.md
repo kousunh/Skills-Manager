@@ -17,6 +17,19 @@ Claude Codeのスキルを管理するGUIアプリです。
 3. プロジェクトフォルダを選択
 4. アプリが自動で `.claude/` にコピーされ、そこから起動
 
+### macOS: 「壊れているため開けません」エラーの対処
+
+アプリが署名されていないため、macOSでブロックされる場合があります。ターミナルで以下を実行してください：
+
+```bash
+xattr -cr /path/to/SkillManager.app
+```
+
+例：
+```bash
+xattr -cr ~/Downloads/SkillManager.app
+```
+
 別のプロジェクトで使う場合は `.claude/SkillManager.app`（または `.exe`）をコピーしてください。
 
 ## 機能
