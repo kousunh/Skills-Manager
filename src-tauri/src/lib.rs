@@ -2,9 +2,8 @@ use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::process::Command;
 use walkdir::WalkDir;
-use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SkillFile {
@@ -28,75 +27,116 @@ pub struct Config {
     pub categories: IndexMap<String, Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct AppSettings {
-    pub project_path: Option<String>,
+fn get_app_path() -> Option<PathBuf> {
+    std::env::current_exe().ok()
 }
 
-pub struct AppState {
-    pub settings: Mutex<AppSettings>,
+fn get_app_bundle_path() -> Option<PathBuf> {
+    // SkillManager.app/Contents/MacOS/app → SkillManager.app
+    get_app_path()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // MacOS/
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // Contents/
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // SkillManager.app/
 }
 
-fn get_settings_path() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("skill-manager")
-        .join("settings.json")
+fn get_base_dir() -> Option<PathBuf> {
+    // アプリの親ディレクトリ（.claude/を期待）
+    get_app_bundle_path()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
 }
 
-fn load_settings() -> AppSettings {
-    let path = get_settings_path();
-    if path.exists() {
-        if let Ok(content) = fs::read_to_string(&path) {
-            if let Ok(settings) = serde_json::from_str(&content) {
-                return settings;
-            }
+fn is_in_claude_dir() -> bool {
+    get_base_dir()
+        .map(|p| p.file_name().map(|n| n == ".claude").unwrap_or(false))
+        .unwrap_or(false)
+}
+
+fn get_config_path() -> Option<PathBuf> {
+    get_base_dir().map(|p| p.join("skill-manager-config.json"))
+}
+
+fn get_skills_dir() -> Option<PathBuf> {
+    get_base_dir().map(|p| p.join("skills"))
+}
+
+fn get_disabled_skills_dir() -> Option<PathBuf> {
+    get_base_dir().map(|p| p.join("disabled-skills"))
+}
+
+#[tauri::command]
+fn check_setup() -> Result<bool, String> {
+    // .claudeディレクトリ内にいるかチェック
+    Ok(is_in_claude_dir())
+}
+
+#[tauri::command]
+fn get_current_project_path() -> Option<String> {
+    if is_in_claude_dir() {
+        get_base_dir()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+            .map(|p| p.to_string_lossy().to_string())
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+fn copy_app_to_project(project_path: String) -> Result<(), String> {
+    let target_dir = PathBuf::from(&project_path).join(".claude");
+
+    // .claudeディレクトリを作成
+    fs::create_dir_all(&target_dir).map_err(|e| format!("Failed to create .claude directory: {}", e))?;
+
+    // 現在のアプリバンドルのパスを取得
+    let app_bundle = get_app_bundle_path().ok_or("Could not find app bundle")?;
+    let app_name = app_bundle.file_name().ok_or("Could not get app name")?;
+    let target_app = target_dir.join(app_name);
+
+    // 既存のアプリを削除
+    if target_app.exists() {
+        fs::remove_dir_all(&target_app).map_err(|e| format!("Failed to remove existing app: {}", e))?;
+    }
+
+    // アプリをコピー
+    copy_dir_all(&app_bundle, &target_app).map_err(|e| format!("Failed to copy app: {}", e))?;
+
+    // コピー先のアプリを起動
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&target_app)
+            .spawn()
+            .map_err(|e| format!("Failed to launch app: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let exe_path = target_app.join("SkillManager.exe");
+        Command::new(&exe_path)
+            .spawn()
+            .map_err(|e| format!("Failed to launch app: {}", e))?;
+    }
+
+    Ok(())
+}
+
+fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
         }
     }
-    AppSettings::default()
-}
-
-fn save_settings(settings: &AppSettings) -> Result<(), String> {
-    let path = get_settings_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    fs::write(path, json).map_err(|e| e.to_string())
-}
-
-fn get_base_dir(state: &State<AppState>) -> Option<PathBuf> {
-    let settings = state.settings.lock().unwrap();
-    settings.project_path.as_ref().map(|p| PathBuf::from(p).join(".claude"))
-}
-
-fn get_config_path(state: &State<AppState>) -> Option<PathBuf> {
-    get_base_dir(state).map(|p| p.join("skill-manager-config.json"))
-}
-
-fn get_skills_dir(state: &State<AppState>) -> Option<PathBuf> {
-    get_base_dir(state).map(|p| p.join("skills"))
-}
-
-fn get_disabled_skills_dir(state: &State<AppState>) -> Option<PathBuf> {
-    get_base_dir(state).map(|p| p.join("disabled-skills"))
-}
-
-#[tauri::command]
-fn get_project_path(state: State<AppState>) -> Option<String> {
-    let settings = state.settings.lock().unwrap();
-    settings.project_path.clone()
-}
-
-#[tauri::command]
-fn set_project_path(path: String, state: State<AppState>) -> Result<(), String> {
-    let mut settings = state.settings.lock().unwrap();
-    settings.project_path = Some(path);
-    save_settings(&settings)
+    Ok(())
 }
 
 fn parse_skill_description(content: &str) -> String {
-    // Look for description in frontmatter or first paragraph
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("description:") {
@@ -104,7 +144,6 @@ fn parse_skill_description(content: &str) -> String {
         }
     }
 
-    // Fallback: use first non-empty, non-heading line
     for line in content.lines() {
         let trimmed = line.trim();
         if !trimmed.is_empty() && !trimmed.starts_with('#') && !trimmed.starts_with("---") {
@@ -116,20 +155,18 @@ fn parse_skill_description(content: &str) -> String {
 }
 
 #[tauri::command]
-fn load_skills(state: State<AppState>) -> Result<Vec<Skill>, String> {
-    let skills_dir = get_skills_dir(&state).ok_or("Project path not set")?;
-    let disabled_dir = get_disabled_skills_dir(&state).ok_or("Project path not set")?;
+fn load_skills() -> Result<Vec<Skill>, String> {
+    let skills_dir = get_skills_dir().ok_or("Not in a valid project")?;
+    let disabled_dir = get_disabled_skills_dir().ok_or("Not in a valid project")?;
 
     let mut skills = Vec::new();
 
-    // Helper function to get files in a skill directory
     let get_skill_files = |skill_dir: &std::path::Path| -> Vec<SkillFile> {
         let mut files = Vec::new();
         if let Ok(entries) = fs::read_dir(skill_dir) {
             for entry in entries.filter_map(|e| e.ok()) {
                 let path = entry.path();
                 let name = entry.file_name().to_string_lossy().to_string();
-                // Skip SKILL.md as it's shown in main content
                 if name == "SKILL.md" {
                     continue;
                 }
@@ -141,7 +178,6 @@ fn load_skills(state: State<AppState>) -> Result<Vec<Skill>, String> {
             }
         }
         files.sort_by(|a, b| {
-            // Directories first, then by name
             match (a.is_directory, b.is_directory) {
                 (true, false) => std::cmp::Ordering::Less,
                 (false, true) => std::cmp::Ordering::Greater,
@@ -151,13 +187,12 @@ fn load_skills(state: State<AppState>) -> Result<Vec<Skill>, String> {
         files
     };
 
-    // Helper function to load skills from a directory
     let load_from_dir = |dir: &PathBuf, enabled: bool, skills: &mut Vec<Skill>| {
         if !dir.exists() {
             return;
         }
         for entry in WalkDir::new(dir)
-            .max_depth(2)  // skill-name/SKILL.md
+            .max_depth(2)
             .into_iter()
             .filter_map(|e| e.ok())
         {
@@ -186,24 +221,18 @@ fn load_skills(state: State<AppState>) -> Result<Vec<Skill>, String> {
         }
     };
 
-    // Load enabled skills
     load_from_dir(&skills_dir, true, &mut skills);
-
-    // Load disabled skills
     load_from_dir(&disabled_dir, false, &mut skills);
-
-    // Sort by name
     skills.sort_by(|a, b| a.name.cmp(&b.name));
 
     Ok(skills)
 }
 
 #[tauri::command]
-fn toggle_skill(skill_name: String, enabled: bool, state: State<AppState>) -> Result<(), String> {
-    let skills_dir = get_skills_dir(&state).ok_or("Project path not set")?;
-    let disabled_dir = get_disabled_skills_dir(&state).ok_or("Project path not set")?;
+fn toggle_skill(skill_name: String, enabled: bool) -> Result<(), String> {
+    let skills_dir = get_skills_dir().ok_or("Not in a valid project")?;
+    let disabled_dir = get_disabled_skills_dir().ok_or("Not in a valid project")?;
 
-    // Create directories if they don't exist
     if !skills_dir.exists() {
         fs::create_dir_all(&skills_dir).map_err(|e| e.to_string())?;
     }
@@ -212,10 +241,8 @@ fn toggle_skill(skill_name: String, enabled: bool, state: State<AppState>) -> Re
     }
 
     let (src, dst) = if enabled {
-        // Move from disabled-skills to skills
         (disabled_dir.join(&skill_name), skills_dir.join(&skill_name))
     } else {
-        // Move from skills to disabled-skills
         (skills_dir.join(&skill_name), disabled_dir.join(&skill_name))
     };
 
@@ -227,10 +254,9 @@ fn toggle_skill(skill_name: String, enabled: bool, state: State<AppState>) -> Re
 }
 
 #[tauri::command]
-fn load_config(state: State<AppState>) -> Result<Config, String> {
-    let path = get_config_path(&state).ok_or("Project path not set")?;
+fn load_config() -> Result<Config, String> {
+    let path = get_config_path().ok_or("Not in a valid project")?;
 
-    // ファイルが存在すれば読み込む
     if path.exists() {
         if let Ok(content) = fs::read_to_string(&path) {
             if let Ok(config) = serde_json::from_str(&content) {
@@ -239,12 +265,10 @@ fn load_config(state: State<AppState>) -> Result<Config, String> {
         }
     }
 
-    // ファイルがなければデフォルトを作成して保存
     let mut categories = IndexMap::new();
     categories.insert("未分類".to_string(), Vec::new());
     let default_config = Config { categories };
 
-    // ファイルに保存
     if let Ok(json) = serde_json::to_string_pretty(&default_config) {
         let _ = fs::write(&path, json);
     }
@@ -253,8 +277,8 @@ fn load_config(state: State<AppState>) -> Result<Config, String> {
 }
 
 #[tauri::command]
-fn save_config(config: Config, state: State<AppState>) -> Result<(), String> {
-    let path = get_config_path(&state).ok_or("Project path not set")?;
+fn save_config(config: Config) -> Result<(), String> {
+    let path = get_config_path().ok_or("Not in a valid project")?;
     let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     fs::write(path, json).map_err(|e| e.to_string())
 }
@@ -300,14 +324,10 @@ fn list_directory(path: String) -> Result<Vec<SkillFile>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let settings = load_settings();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(AppState {
-            settings: Mutex::new(settings),
-        })
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -326,8 +346,9 @@ pub fn run() {
             read_file,
             write_file,
             list_directory,
-            get_project_path,
-            set_project_path
+            check_setup,
+            get_current_project_path,
+            copy_app_to_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

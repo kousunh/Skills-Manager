@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { SkillList } from './components/SkillList';
@@ -11,30 +10,22 @@ import { useSkills } from './hooks/useSkills';
 import type { SkillFile } from './types';
 
 function App() {
-  const [projectPath, setProjectPath] = useState<string | null | undefined>(undefined);
+  const [isSetup, setIsSetup] = useState<boolean | undefined>(undefined);
+  const [projectPath, setProjectPath] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(null);
 
   useEffect(() => {
-    invoke<string | null>('get_project_path').then(setProjectPath);
-  }, []);
-
-  const handleChangeProject = useCallback(async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: 'スキルを管理したいプロジェクトを選んでください',
-      });
-
-      if (selected && typeof selected === 'string') {
-        await invoke('set_project_path', { path: selected });
-        setProjectPath(selected);
+    const checkSetup = async () => {
+      const setup = await invoke<boolean>('check_setup');
+      setIsSetup(setup);
+      if (setup) {
+        const path = await invoke<string | null>('get_current_project_path');
+        setProjectPath(path);
       }
-    } catch (err) {
-      console.error('Failed to select folder:', err);
-    }
+    };
+    checkSetup();
   }, []);
 
   const {
@@ -56,7 +47,7 @@ function App() {
     renameCategory,
     loading,
     error
-  } = useSkills(projectPath);
+  } = useSkills(isSetup === true);
 
   // 検索フィルター
   const filteredSkills = useMemo(() => {
@@ -73,8 +64,8 @@ function App() {
   const totalSkills = skills.length;
   const enabledSkills = skills.filter(s => s.enabled).length;
 
-  // まだプロジェクトパスを確認中
-  if (projectPath === undefined) {
+  // セットアップチェック中
+  if (isSetup === undefined) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-100">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -82,9 +73,9 @@ function App() {
     );
   }
 
-  // プロジェクトパスが未設定
-  if (projectPath === null) {
-    return <ProjectSelector onProjectSelected={setProjectPath} />;
+  // .claudeディレクトリ外で起動された場合
+  if (isSetup === false) {
+    return <ProjectSelector />;
   }
 
   if (loading) {
@@ -105,9 +96,6 @@ function App() {
           <div className="text-red-500 text-5xl mb-4">!</div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">Error Loading Skills</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <p className="text-sm text-gray-500">
-            Make sure you have Claude Code installed and the ~/.claude directory exists.
-          </p>
         </div>
       </div>
     );
@@ -121,8 +109,7 @@ function App() {
         onSearchChange={setSearchQuery}
         totalSkills={totalSkills}
         enabledSkills={enabledSkills}
-        projectPath={projectPath}
-        onChangeProject={handleChangeProject}
+        projectPath={projectPath || ''}
       />
 
       <CategoryTabs
@@ -140,7 +127,6 @@ function App() {
             skills={filteredSkills}
             selectedSkill={selectedSkill}
             onSelectSkill={(skill) => {
-              // 同じスキルをクリックしたら折りたたむ
               if (selectedSkill?.name === skill.name) {
                 setSelectedSkill(null);
                 setSelectedFile(null);
