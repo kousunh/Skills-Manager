@@ -15,4 +15,5 @@ export interface Skill {
 
 export interface Config {
   categories: Record<string, string[]>;
+  categoryOrder?: string[];  // カテゴリの表示順序
 }

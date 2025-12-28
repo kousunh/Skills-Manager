@@ -8,6 +8,21 @@ const normalizeConfig = (loadedSkills: Skill[], loadedConfig: Config): Config =>
     nextCategories[key] = [...value];
   }
 
+  // categoryOrderがなければcategoriesのキー順で作成
+  let categoryOrder = loadedConfig.categoryOrder && loadedConfig.categoryOrder.length > 0
+    ? [...loadedConfig.categoryOrder]
+    : Object.keys(nextCategories);
+
+  // categoryOrderに含まれないカテゴリがあれば追加
+  for (const key of Object.keys(nextCategories)) {
+    if (!categoryOrder.includes(key)) {
+      categoryOrder.push(key);
+    }
+  }
+
+  // 存在しないカテゴリをcategoryOrderから削除
+  categoryOrder = categoryOrder.filter(cat => cat in nextCategories);
+
   const categorizedSkills = new Set<string>();
   for (const skillNames of Object.values(nextCategories)) {
     for (const name of skillNames) {
@@ -19,21 +34,20 @@ const normalizeConfig = (loadedSkills: Skill[], loadedConfig: Config): Config =>
     .map(s => s.name)
     .filter(name => !categorizedSkills.has(name));
 
-  const categoryKeys = Object.keys(nextCategories);
-  if (uncategorized.length > 0 && categoryKeys.length > 0) {
-    const firstCategory = categoryKeys[0];
+  if (uncategorized.length > 0 && categoryOrder.length > 0) {
+    const firstCategory = categoryOrder[0];
     nextCategories[firstCategory] = [
       ...(nextCategories[firstCategory] || []),
       ...uncategorized
     ];
   }
 
-  return { categories: nextCategories };
+  return { categories: nextCategories, categoryOrder };
 };
 
 export function useSkills(isReady: boolean) {
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [config, setConfig] = useState<Config>({ categories: {} });
+  const [config, setConfig] = useState<Config>({ categories: {}, categoryOrder: [] });
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +75,7 @@ export function useSkills(isReady: boolean) {
         setConfig(normalizedConfig);
 
         // Set initial category
-        const cats = Object.keys(normalizedConfig.categories);
+        const cats = normalizedConfig.categoryOrder || [];
         if (cats.length > 0 && !cats.includes(selectedCategory)) {
           setSelectedCategory(cats[0]);
         }
@@ -93,7 +107,10 @@ export function useSkills(isReady: boolean) {
     });
   }, [saveConfig]);
 
-  const categories = useMemo(() => Object.keys(config.categories), [config.categories]);
+  // categoryOrderを使用してカテゴリリストを取得
+  const categories = useMemo(() => {
+    return config.categoryOrder || Object.keys(config.categories);
+  }, [config.categoryOrder, config.categories]);
 
   const skillsInCategory = useMemo(() => {
     const skillNames = config.categories[selectedCategory] || [];
@@ -180,7 +197,7 @@ export function useSkills(isReady: boolean) {
         newCategories[newCategory] = [...newCategories[newCategory], skillName];
       }
 
-      return { categories: newCategories };
+      return { ...prev, categories: newCategories };
     });
   }, [updateConfig]);
 
@@ -191,7 +208,7 @@ export function useSkills(isReady: boolean) {
       for (const cat of Object.keys(newCategories)) {
         newCategories[cat] = newCategories[cat].filter(name => name !== skillName);
       }
-      return { categories: newCategories };
+      return { ...prev, categories: newCategories };
     });
     if (selectedSkill?.name === skillName) {
       setSelectedSkill(null);
@@ -200,32 +217,36 @@ export function useSkills(isReady: boolean) {
 
   const addCategory = useCallback((name: string) => {
     updateConfig(prev => ({
-      categories: { ...prev.categories, [name]: [] }
+      categories: { ...prev.categories, [name]: [] },
+      categoryOrder: [...(prev.categoryOrder || []), name]
     }));
   }, [updateConfig]);
 
   const removeCategory = useCallback((name: string) => {
     // 最後の1つは削除不可
-    const catKeys = Object.keys(config.categories);
-    if (catKeys.length <= 1) return;
+    const catOrder = config.categoryOrder || [];
+    if (catOrder.length <= 1) return;
 
     updateConfig(prev => {
       const newCategories = { ...prev.categories };
       const skillsToMove = newCategories[name] || [];
       delete newCategories[name];
+
+      const newOrder = (prev.categoryOrder || []).filter(c => c !== name);
+
       // 最初のカテゴリにスキルを移動
-      const firstCategory = Object.keys(newCategories)[0];
-      if (firstCategory) {
+      if (newOrder.length > 0) {
+        const firstCategory = newOrder[0];
         newCategories[firstCategory] = [...(newCategories[firstCategory] || []), ...skillsToMove];
       }
-      return { categories: newCategories };
+      return { categories: newCategories, categoryOrder: newOrder };
     });
 
     if (selectedCategory === name) {
-      const remaining = Object.keys(config.categories).filter(c => c !== name);
+      const remaining = (config.categoryOrder || []).filter(c => c !== name);
       setSelectedCategory(remaining[0] || '');
     }
-  }, [selectedCategory, config.categories, updateConfig]);
+  }, [selectedCategory, config.categoryOrder, updateConfig]);
 
   const renameCategory = useCallback((oldName: string, newName: string) => {
     if (!newName || oldName === newName) return;
@@ -239,7 +260,10 @@ export function useSkills(isReady: boolean) {
           newCategories[key] = value;
         }
       }
-      return { categories: newCategories };
+
+      const newOrder = (prev.categoryOrder || []).map(c => c === oldName ? newName : c);
+
+      return { categories: newCategories, categoryOrder: newOrder };
     });
 
     if (selectedCategory === oldName) {
@@ -248,15 +272,10 @@ export function useSkills(isReady: boolean) {
   }, [selectedCategory, updateConfig]);
 
   const reorderCategories = useCallback((newOrder: string[]) => {
-    updateConfig(prev => {
-      const newCategories: Record<string, string[]> = {};
-      for (const cat of newOrder) {
-        if (prev.categories[cat]) {
-          newCategories[cat] = prev.categories[cat];
-        }
-      }
-      return { categories: newCategories };
-    });
+    updateConfig(prev => ({
+      ...prev,
+      categoryOrder: newOrder
+    }));
   }, [updateConfig]);
 
   return {

@@ -23,8 +23,11 @@ pub struct Skill {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Config {
     pub categories: IndexMap<String, Vec<String>>,
+    #[serde(default)]
+    pub category_order: Vec<String>,
 }
 
 fn get_app_path() -> Option<PathBuf> {
@@ -292,7 +295,11 @@ fn load_config() -> Result<Config, String> {
 
     if path.exists() {
         if let Ok(content) = fs::read_to_string(&path) {
-            if let Ok(config) = serde_json::from_str(&content) {
+            if let Ok(mut config) = serde_json::from_str::<Config>(&content) {
+                // category_orderが空なら、categoriesのキー順で初期化
+                if config.category_order.is_empty() {
+                    config.category_order = config.categories.keys().cloned().collect();
+                }
                 return Ok(config);
             }
         }
@@ -300,7 +307,8 @@ fn load_config() -> Result<Config, String> {
 
     let mut categories = IndexMap::new();
     categories.insert("未分類".to_string(), Vec::new());
-    let default_config = Config { categories };
+    let category_order = vec!["未分類".to_string()];
+    let default_config = Config { categories, category_order };
 
     if let Ok(json) = serde_json::to_string_pretty(&default_config) {
         let _ = fs::write(&path, json);
