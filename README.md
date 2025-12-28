@@ -4,17 +4,20 @@ Claude Codeのスキルを管理するGUIアプリです。
 
 ## インストール
 
-[Releases](https://github.com/kousunh/Skills-Manager/releases) から最新版をダウンロード:
+[Releases](https://github.com/kousunh/Skills-Manager/releases) からダウンロード:
 
-- **macOS (Apple Silicon)**: `SkillManager_x.x.x_aarch64.dmg`
-- **macOS (Intel)**: `SkillManager_x.x.x_x64.dmg`
-- **Windows**: `.msi` または `.exe`
+- **macOS (Apple Silicon)**: `SkillManager_aarch64_macos.zip`
+- **macOS (Intel)**: `SkillManager_x64_macos.zip`
+- **Windows**: `SkillManager_windows.zip`
 
 ## 使い方
 
-1. アプリを起動
-2. 初回起動時、スキルを管理したいプロジェクトフォルダを選択
-3. 選択したフォルダ内の `.claude/skills/` が管理対象になります
+1. zipを解凍
+2. アプリを起動
+3. プロジェクトフォルダを選択
+4. アプリが自動で `.claude/` にコピーされ、そこから起動
+
+別のプロジェクトで使う場合は `.claude/SkillManager.app`（または `.exe`）をコピーしてください。
 
 ## 機能
 
