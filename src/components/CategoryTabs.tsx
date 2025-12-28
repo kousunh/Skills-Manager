@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 
 interface CategoryTabsProps {
   categories: string[];
@@ -23,7 +23,6 @@ export function CategoryTabs({
   const [newName, setNewName] = useState('');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const dragStartX = useRef<number>(0);
 
   const handleAdd = () => {
     if (newName.trim() && !categories.includes(newName.trim())) {
@@ -43,30 +42,41 @@ export function CategoryTabs({
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
-    dragStartX.current = e.clientX;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(index));
+    // ドラッグ中の見た目を設定
+    if (e.currentTarget instanceof HTMLElement) {
+      e.dataTransfer.setDragImage(e.currentTarget, 0, 0);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
     if (draggedIndex !== null && draggedIndex !== index) {
       setDragOverIndex(index);
     }
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
     setDragOverIndex(null);
   };
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
-    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+    e.stopPropagation();
+
+    const dragIndex = draggedIndex ?? parseInt(e.dataTransfer.getData('text/plain'), 10);
+
+    if (!isNaN(dragIndex) && dragIndex !== dropIndex) {
       const newOrder = [...categories];
-      const [removed] = newOrder.splice(draggedIndex, 1);
+      const [removed] = newOrder.splice(dragIndex, 1);
       newOrder.splice(dropIndex, 0, removed);
       onReorderCategories(newOrder);
     }
+
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
@@ -86,7 +96,7 @@ export function CategoryTabs({
         const isDragOver = dragOverIndex === index;
 
         return (
-          <button
+          <div
             key={category}
             draggable
             onDragStart={(e) => handleDragStart(e, index)}
@@ -94,27 +104,31 @@ export function CategoryTabs({
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
-            onClick={() => onSelectCategory(category)}
-            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap cursor-grab active:cursor-grabbing ${
-              isSelected
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-200'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-            } ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
+            className={`${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-400 ring-offset-2 rounded-lg' : ''}`}
           >
-            <span>{category}</span>
-            {total > 0 && (
-              <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
+            <button
+              onClick={() => onSelectCategory(category)}
+              className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap cursor-grab active:cursor-grabbing ${
                 isSelected
-                  ? 'bg-white/20 text-white'
-                  : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  enabled > 0 ? 'bg-green-400' : 'bg-gray-400'
-                }`} />
-                {enabled}/{total}
-              </span>
-            )}
-          </button>
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-200'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+            >
+              <span>{category}</span>
+              {total > 0 && (
+                <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
+                  isSelected
+                    ? 'bg-white/20 text-white'
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    enabled > 0 ? 'bg-green-400' : 'bg-gray-400'
+                  }`} />
+                  {enabled}/{total}
+                </span>
+              )}
+            </button>
+          </div>
         );
       })}
 
