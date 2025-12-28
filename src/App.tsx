@@ -1,16 +1,23 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { SkillList } from './components/SkillList';
 import { SkillPreview } from './components/SkillPreview';
 import { CategoryEditor } from './components/CategoryEditor';
+import { ProjectSelector } from './components/ProjectSelector';
 import { useSkills } from './hooks/useSkills';
 import type { SkillFile } from './types';
 
 function App() {
+  const [projectPath, setProjectPath] = useState<string | null | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(null);
+
+  useEffect(() => {
+    invoke<string | null>('get_project_path').then(setProjectPath);
+  }, []);
 
   const {
     skills,
@@ -31,7 +38,7 @@ function App() {
     renameCategory,
     loading,
     error
-  } = useSkills();
+  } = useSkills(projectPath);
 
   // 検索フィルター
   const filteredSkills = useMemo(() => {
@@ -47,6 +54,20 @@ function App() {
   // 全体の統計
   const totalSkills = skills.length;
   const enabledSkills = skills.filter(s => s.enabled).length;
+
+  // まだプロジェクトパスを確認中
+  if (projectPath === undefined) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // プロジェクトパスが未設定
+  if (projectPath === null) {
+    return <ProjectSelector onProjectSelected={setProjectPath} />;
+  }
 
   if (loading) {
     return (

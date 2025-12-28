@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use walkdir::WalkDir;
+use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SkillFile {
@@ -26,28 +28,71 @@ pub struct Config {
     pub categories: IndexMap<String, Vec<String>>,
 }
 
-fn get_base_dir() -> PathBuf {
-    // 実行ファイルの場所を基準（.claude/に置かれる想定）
-    // SkillManager.app/Contents/MacOS/app → SkillManager.app の親ディレクトリ
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // MacOS/
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // Contents/
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // SkillManager.app/
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))  // .claude/
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct AppSettings {
+    pub project_path: Option<String>,
 }
 
-fn get_config_path() -> PathBuf {
-    get_base_dir().join("skill-manager-config.json")
+pub struct AppState {
+    pub settings: Mutex<AppSettings>,
 }
 
-fn get_skills_dir() -> PathBuf {
-    get_base_dir().join("skills")
+fn get_settings_path() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("skill-manager")
+        .join("settings.json")
 }
 
-fn get_disabled_skills_dir() -> PathBuf {
-    get_base_dir().join("disabled-skills")
+fn load_settings() -> AppSettings {
+    let path = get_settings_path();
+    if path.exists() {
+        if let Ok(content) = fs::read_to_string(&path) {
+            if let Ok(settings) = serde_json::from_str(&content) {
+                return settings;
+            }
+        }
+    }
+    AppSettings::default()
+}
+
+fn save_settings(settings: &AppSettings) -> Result<(), String> {
+    let path = get_settings_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())
+}
+
+fn get_base_dir(state: &State<AppState>) -> Option<PathBuf> {
+    let settings = state.settings.lock().unwrap();
+    settings.project_path.as_ref().map(|p| PathBuf::from(p).join(".claude"))
+}
+
+fn get_config_path(state: &State<AppState>) -> Option<PathBuf> {
+    get_base_dir(state).map(|p| p.join("skill-manager-config.json"))
+}
+
+fn get_skills_dir(state: &State<AppState>) -> Option<PathBuf> {
+    get_base_dir(state).map(|p| p.join("skills"))
+}
+
+fn get_disabled_skills_dir(state: &State<AppState>) -> Option<PathBuf> {
+    get_base_dir(state).map(|p| p.join("disabled-skills"))
+}
+
+#[tauri::command]
+fn get_project_path(state: State<AppState>) -> Option<String> {
+    let settings = state.settings.lock().unwrap();
+    settings.project_path.clone()
+}
+
+#[tauri::command]
+fn set_project_path(path: String, state: State<AppState>) -> Result<(), String> {
+    let mut settings = state.settings.lock().unwrap();
+    settings.project_path = Some(path);
+    save_settings(&settings)
 }
 
 fn parse_skill_description(content: &str) -> String {
@@ -71,9 +116,9 @@ fn parse_skill_description(content: &str) -> String {
 }
 
 #[tauri::command]
-fn load_skills() -> Result<Vec<Skill>, String> {
-    let skills_dir = get_skills_dir();
-    let disabled_dir = get_disabled_skills_dir();
+fn load_skills(state: State<AppState>) -> Result<Vec<Skill>, String> {
+    let skills_dir = get_skills_dir(&state).ok_or("Project path not set")?;
+    let disabled_dir = get_disabled_skills_dir(&state).ok_or("Project path not set")?;
 
     let mut skills = Vec::new();
 
@@ -141,10 +186,10 @@ fn load_skills() -> Result<Vec<Skill>, String> {
         }
     };
 
-    // Load enabled skills from ~/.claude/skills/
+    // Load enabled skills
     load_from_dir(&skills_dir, true, &mut skills);
 
-    // Load disabled skills from ~/.claude/disabled-skills/
+    // Load disabled skills
     load_from_dir(&disabled_dir, false, &mut skills);
 
     // Sort by name
@@ -154,9 +199,9 @@ fn load_skills() -> Result<Vec<Skill>, String> {
 }
 
 #[tauri::command]
-fn toggle_skill(skill_name: String, enabled: bool) -> Result<(), String> {
-    let skills_dir = get_skills_dir();
-    let disabled_dir = get_disabled_skills_dir();
+fn toggle_skill(skill_name: String, enabled: bool, state: State<AppState>) -> Result<(), String> {
+    let skills_dir = get_skills_dir(&state).ok_or("Project path not set")?;
+    let disabled_dir = get_disabled_skills_dir(&state).ok_or("Project path not set")?;
 
     // Create directories if they don't exist
     if !skills_dir.exists() {
@@ -182,8 +227,8 @@ fn toggle_skill(skill_name: String, enabled: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn load_config() -> Result<Config, String> {
-    let path = get_config_path();
+fn load_config(state: State<AppState>) -> Result<Config, String> {
+    let path = get_config_path(&state).ok_or("Project path not set")?;
 
     // ファイルが存在すれば読み込む
     if path.exists() {
@@ -208,8 +253,8 @@ fn load_config() -> Result<Config, String> {
 }
 
 #[tauri::command]
-fn save_config(config: Config) -> Result<(), String> {
-    let path = get_config_path();
+fn save_config(config: Config, state: State<AppState>) -> Result<(), String> {
+    let path = get_config_path(&state).ok_or("Project path not set")?;
     let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
     fs::write(path, json).map_err(|e| e.to_string())
 }
@@ -255,8 +300,14 @@ fn list_directory(path: String) -> Result<Vec<SkillFile>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let settings = load_settings();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
+        .manage(AppState {
+            settings: Mutex::new(settings),
+        })
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -274,7 +325,9 @@ pub fn run() {
             save_config,
             read_file,
             write_file,
-            list_directory
+            list_directory,
+            get_project_path,
+            set_project_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

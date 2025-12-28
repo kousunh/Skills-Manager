@@ -31,7 +31,7 @@ const normalizeConfig = (loadedSkills: Skill[], loadedConfig: Config): Config =>
   return { categories: nextCategories };
 };
 
-export function useSkills() {
+export function useSkills(projectPath: string | null | undefined) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [config, setConfig] = useState<Config>({ categories: {} });
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -39,8 +39,13 @@ export function useSkills() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load skills and config on mount
+  // Load skills and config when projectPath changes
   useEffect(() => {
+    if (!projectPath) {
+      setLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       try {
         setLoading(true);
@@ -69,7 +74,7 @@ export function useSkills() {
     };
 
     loadData();
-  }, []);
+  }, [projectPath]);
 
   // Save config when it changes
   const saveConfig = useCallback(async (newConfig: Config) => {
