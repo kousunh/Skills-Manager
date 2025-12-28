@@ -47,5 +47,6 @@ xattr -cr ~/Downloads/SkillManager.app
 - スキルの検索
 - SKILL.mdや付属リファレンスのプレビュー・編集
 
-## MIT
-MITライセンスとして、このプロジェクトは自由に改変して頂いて構いません。
+## ライセンス
+
+[MIT License](LICENSE) - 自由に使用・改変・再配布できます。
