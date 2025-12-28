@@ -247,6 +247,18 @@ export function useSkills(isReady: boolean) {
     }
   }, [selectedCategory, updateConfig]);
 
+  const reorderCategories = useCallback((newOrder: string[]) => {
+    updateConfig(prev => {
+      const newCategories: Record<string, string[]> = {};
+      for (const cat of newOrder) {
+        if (prev.categories[cat]) {
+          newCategories[cat] = prev.categories[cat];
+        }
+      }
+      return { categories: newCategories };
+    });
+  }, [updateConfig]);
+
   return {
     skills,
     config,
@@ -266,6 +278,7 @@ export function useSkills(isReady: boolean) {
     addCategory,
     removeCategory,
     renameCategory,
+    reorderCategories,
     loading,
     error
   };

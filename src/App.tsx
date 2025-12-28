@@ -40,6 +40,7 @@ function App() {
     addCategory,
     removeCategory,
     renameCategory,
+    reorderCategories,
     loading,
     error
   } = useSkills(isSetup === true);
@@ -113,6 +114,7 @@ function App() {
         skillCounts={skillCounts}
         enabledCounts={enabledCounts}
         onAddCategory={addCategory}
+        onReorderCategories={reorderCategories}
       />
 
       <div className="flex-1 flex gap-4 p-4 overflow-hidden">
@@ -159,6 +161,7 @@ function App() {
           onAddCategory={addCategory}
           onRemoveCategory={removeCategory}
           onRenameCategory={renameCategory}
+          onReorderCategories={reorderCategories}
         />
       )}
     </div>

@@ -7,6 +7,7 @@ interface CategoryEditorProps {
   onAddCategory: (name: string) => void;
   onRemoveCategory: (name: string) => void;
   onRenameCategory: (oldName: string, newName: string) => void;
+  onReorderCategories: (newOrder: string[]) => void;
 }
 
 export function CategoryEditor({
@@ -15,13 +16,16 @@ export function CategoryEditor({
   onClose,
   onAddCategory,
   onRemoveCategory,
-  onRenameCategory
+  onRenameCategory,
+  onReorderCategories
 }: CategoryEditorProps) {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleAdd = () => {
     if (newCategoryName.trim() && !categories.includes(newCategoryName.trim())) {
@@ -59,6 +63,49 @@ export function CategoryEditor({
     }
   };
 
+  const moveCategory = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= categories.length) return;
+
+    const newOrder = [...categories];
+    [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
+    onReorderCategories(newOrder);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      const newOrder = [...categories];
+      const [removed] = newOrder.splice(draggedIndex, 1);
+      newOrder.splice(dropIndex, 0, removed);
+      onReorderCategories(newOrder);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -66,7 +113,7 @@ export function CategoryEditor({
         <div className="px-6 py-5 bg-gradient-to-r from-slate-800 to-slate-900 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white">カテゴリ設定</h2>
-            <p className="text-sm text-slate-400 mt-0.5">カテゴリの追加・編集・削除</p>
+            <p className="text-sm text-slate-400 mt-0.5">カテゴリの追加・編集・削除・並び替え</p>
           </div>
           <button
             onClick={onClose}
@@ -133,82 +180,131 @@ export function CategoryEditor({
 
           {/* Category list */}
           <div className="space-y-2 max-h-72 overflow-y-auto">
-            {categories.map((category) => (
-              <div
-                key={category}
-                className="flex items-center gap-3 p-3 rounded-xl transition-all bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm"
-              >
-                {editingCategory === category ? (
-                  <>
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRename(category);
-                        if (e.key === 'Escape') setEditingCategory(null);
-                      }}
-                    />
-                    <button
-                      onClick={() => handleRename(category)}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setEditingCategory(null)}
-                      className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 flex-1">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      <span className="font-medium text-gray-700">
-                        {category}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        ({skillCounts[category] || 0}件)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
+            {categories.map((category, index) => {
+              const isDragging = draggedIndex === index;
+              const isDragOver = dragOverIndex === index;
+
+              return (
+                <div
+                  key={category}
+                  draggable={editingCategory !== category}
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-3 p-3 rounded-xl transition-all bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm ${
+                    isDragging ? 'opacity-50' : ''
+                  } ${isDragOver ? 'ring-2 ring-blue-400' : ''}`}
+                >
+                  {editingCategory === category ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRename(category);
+                          if (e.key === 'Escape') setEditingCategory(null);
+                        }}
+                      />
                       <button
-                        onClick={() => startEditing(category)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="名前を変更"
+                        onClick={() => handleRename(category)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       </button>
-                      {/* 最後の1つは削除不可 */}
-                      {categories.length > 1 && (
+                      <button
+                        onClick={() => setEditingCategory(null)}
+                        className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Drag handle */}
+                      <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                        </svg>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-1">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        <span className="font-medium text-gray-700">
+                          {category}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          ({skillCounts[category] || 0}件)
+                        </span>
+                      </div>
+
+                      {/* Up/Down buttons */}
+                      <div className="flex flex-col">
                         <button
-                          onClick={() => handleRemove(category)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="削除"
+                          onClick={() => moveCategory(index, 'up')}
+                          disabled={index === 0}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="上に移動"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                           </svg>
                         </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
+                        <button
+                          onClick={() => moveCategory(index, 'down')}
+                          disabled={index === categories.length - 1}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="下に移動"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => startEditing(category)}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="名前を変更"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        {/* 最後の1つは削除不可 */}
+                        {categories.length > 1 && (
+                          <button
+                            onClick={() => handleRemove(category)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="削除"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
+
+          <p className="mt-4 text-xs text-gray-400 text-center">
+            ドラッグ&ドロップまたは矢印ボタンで並び替え
+          </p>
         </div>
 
         {/* Footer */}

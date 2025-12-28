@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 interface CategoryTabsProps {
   categories: string[];
@@ -7,6 +7,7 @@ interface CategoryTabsProps {
   skillCounts: Record<string, number>;
   enabledCounts: Record<string, number>;
   onAddCategory: (name: string) => void;
+  onReorderCategories: (newOrder: string[]) => void;
 }
 
 export function CategoryTabs({
@@ -15,10 +16,14 @@ export function CategoryTabs({
   onSelectCategory,
   skillCounts,
   enabledCounts,
-  onAddCategory
+  onAddCategory,
+  onReorderCategories
 }: CategoryTabsProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const dragStartX = useRef<number>(0);
 
   const handleAdd = () => {
     if (newName.trim() && !categories.includes(newName.trim())) {
@@ -36,22 +41,65 @@ export function CategoryTabs({
     }
   };
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    dragStartX.current = e.clientX;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      const newOrder = [...categories];
+      const [removed] = newOrder.splice(draggedIndex, 1);
+      newOrder.splice(dropIndex, 0, removed);
+      onReorderCategories(newOrder);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="flex items-center gap-1 px-4 py-3 bg-white border-b shadow-sm overflow-x-auto">
-      {categories.map((category) => {
+      {categories.map((category, index) => {
         const total = skillCounts[category] || 0;
         const enabled = enabledCounts[category] || 0;
         const isSelected = selectedCategory === category;
+        const isDragging = draggedIndex === index;
+        const isDragOver = dragOverIndex === index;
 
         return (
           <button
             key={category}
+            draggable
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={handleDragEnd}
             onClick={() => onSelectCategory(category)}
-            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
+            className={`group flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap cursor-grab active:cursor-grabbing ${
               isSelected
                 ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-200'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-            }`}
+            } ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-400 ring-offset-2' : ''}`}
           >
             <span>{category}</span>
             {total > 0 && (

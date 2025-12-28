@@ -105,7 +105,6 @@ jobs:
 
             **macOS**: Unzip and copy `SkillManager.app` to your project's `.claude/` folder
             **Windows**: Unzip and copy `SkillManager.exe` to your project's `.claude/` folder
-          prerelease: true
           files: |
             artifacts/macos-aarch64/*.zip
             artifacts/macos-x64/*.zip

@@ -210,21 +210,56 @@ export function SkillPreview({
                 )}
               </button>
             </div>
-            <p className="text-sm text-gray-500 mt-1">{skill.description}</p>
+            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{skill.description}</p>
           </div>
-          {/* カテゴリ変更 */}
-          <div className="shrink-0 flex items-center gap-2">
-            <span className="text-xs text-gray-500">カテゴリ</span>
-            <select
-              value={currentCategory}
-              onChange={(e) => onMoveToCategory(skill.name, e.target.value)}
-              className="px-2 py-1 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all cursor-pointer"
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <span className="text-xs text-gray-500">へ移動</span>
+          {/* 右側: カテゴリ変更 + 編集ボタン */}
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">カテゴリ</span>
+              <select
+                value={currentCategory}
+                onChange={(e) => onMoveToCategory(skill.name, e.target.value)}
+                className="px-2 py-1 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all cursor-pointer"
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-500">へ移動</span>
+            </div>
+            {/* 編集ボタン */}
+            {isEditing ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCancelEdit}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors border border-gray-300"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {saving ? '保存中...' : '保存'}
+                </button>
+              </div>
+            ) : (
+              !currentDir && (
+                <button
+                  onClick={handleStartEdit}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  編集
+                </button>
+              )
+            )}
           </div>
         </div>
       </div>
@@ -361,43 +396,6 @@ export function SkillPreview({
         )}
       </div>
 
-      {/* Footer with actions */}
-      <div className="px-5 py-3 bg-gray-50 border-t flex items-center justify-end gap-3">
-        {isEditing ? (
-          /* 編集モード時のボタン */
-          <>
-            <button
-              onClick={handleCancelEdit}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors border border-gray-300"
-            >
-              キャンセル
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              {saving ? '保存中...' : '保存'}
-            </button>
-          </>
-        ) : (
-          /* 通常モード時：ディレクトリ表示中は編集ボタン非表示 */
-          !currentDir && (
-            <button
-              onClick={handleStartEdit}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              編集
-            </button>
-          )
-        )}
-      </div>
     </div>
   );
 }
