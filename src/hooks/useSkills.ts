@@ -67,6 +67,14 @@ export function useSkills(isReady: boolean) {
       ]);
 
       setSkills(loadedSkills);
+
+      // selectedSkillを新しいデータで更新
+      setSelectedSkill(prev => {
+        if (!prev) return null;
+        const updated = loadedSkills.find(s => s.name === prev.name);
+        return updated || null;
+      });
+
       const normalizedConfig = normalizeConfig(loadedSkills, loadedConfig);
       setConfig(normalizedConfig);
 
