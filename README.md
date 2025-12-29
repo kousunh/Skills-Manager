@@ -1,6 +1,7 @@
 # Skills-Manager
 
 Claude Code・Codex(動作未確認)のAgents Skillsを管理するGUIアプリです。
+アプリ本体をできるだけ軽量にしているので、圧縮ファイルを解凍後のポータブルファイルを管理したいプロジェクトの.claudeや.codexに複製して配置してください。そこにあるSkillsを読み込み管理できます。
 
 ## インストール
 
