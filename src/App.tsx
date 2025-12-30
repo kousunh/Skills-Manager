@@ -106,7 +106,7 @@ function App() {
 
   // .claudeディレクトリ外で起動された場合
   if (isSetup === false) {
-    return <ProjectSelector />;
+    return <ProjectSelector onUseCurrentDir={() => setIsSetup(true)} />;
   }
 
   if (loading) {

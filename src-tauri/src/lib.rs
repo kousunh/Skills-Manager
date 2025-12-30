@@ -76,7 +76,7 @@ fn get_base_dir() -> Option<PathBuf> {
 
 fn is_in_claude_dir() -> bool {
     get_base_dir()
-        .map(|p| p.file_name().map(|n| n == ".claude").unwrap_or(false))
+        .map(|p| p.file_name().map(|n| n == ".claude" || n == ".codex").unwrap_or(false))
         .unwrap_or(false)
 }
 
