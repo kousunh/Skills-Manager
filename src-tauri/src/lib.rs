@@ -288,6 +288,11 @@ fn load_skills() -> Result<Vec<Skill>, String> {
     let skills_dir = get_skills_dir().ok_or("Not in a valid project")?;
     let disabled_dir = get_disabled_skills_dir().ok_or("Not in a valid project")?;
 
+    // skillsディレクトリがなければ作成
+    if !skills_dir.exists() {
+        fs::create_dir_all(&skills_dir).map_err(|e| format!("Failed to create skills directory: {}", e))?;
+    }
+
     let mut skills = Vec::new();
 
     let get_skill_files = |skill_dir: &std::path::Path| -> Vec<SkillFile> {
