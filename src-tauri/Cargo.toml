@@ -26,5 +26,6 @@ tauri-plugin-log = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"
+tauri-plugin-single-instance = "2"
 walkdir = "2.5"
 indexmap = { version = "2.0", features = ["serde"] }

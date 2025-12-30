@@ -2,6 +2,8 @@
 
 Claude Code・Codex(動作未確認)のAgents Skillsを管理するGUIアプリです。
 
+> **注意**: スキルのオン/オフやカスタムコマンドの変更を反映するには、Claude Codeの再起動が必要です。
+
 アプリ本体をできるだけ軽量にしているので、圧縮ファイルを解凍後のポータブルファイルを管理したいプロジェクトの.claudeや.codexに複製して配置してください。
 
 そこにあるSkillsを読み込み管理できます。
@@ -60,6 +62,8 @@ xattr -cr ~/Downloads/skillsmanager.app
 ## /skillsmanager コマンド
 
 設定画面から `/skillsmanager` コマンドを作成できます。これにより Claude Code で `/skillsmanager` と入力するだけでアプリを起動できます。
+
+> コマンドを作成・変更した後は、Claude Codeの再起動が必要です。
 
 ## ライセンス
 
