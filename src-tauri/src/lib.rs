@@ -174,7 +174,7 @@ fn switch_agent_type(target: String) -> Result<(), String> {
 }
 
 fn get_config_path() -> Option<PathBuf> {
-    get_base_dir().map(|p| p.join("skill-manager-config.json"))
+    get_base_dir().map(|p| p.join("skillsmanager-config.json"))
 }
 
 fn get_skills_dir() -> Option<PathBuf> {
