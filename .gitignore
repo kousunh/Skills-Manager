@@ -30,3 +30,5 @@ distribution/*.app
 
 # Development mode config
 skillsmanager-config.json
+*.app
+*.exe

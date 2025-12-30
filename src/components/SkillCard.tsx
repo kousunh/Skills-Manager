@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+import { invoke } from '@tauri-apps/api/core';
 import type { Skill, SkillFile } from '../types';
+
+type AgentType = 'claude' | 'codex' | 'none';
 
 interface SkillCardProps {
   skill: Skill;
@@ -10,14 +13,35 @@ interface SkillCardProps {
   searchHighlight?: string;
   onFileSelect?: (file: SkillFile | null) => void;  // null = SKILL.md
   selectedFile?: SkillFile | null;
+  agentType?: AgentType;
 }
 
-export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile }: SkillCardProps) {
+export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile, agentType = 'none' }: SkillCardProps) {
   const [copiedPath, setCopiedPath] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleRightClick = async (e: React.MouseEvent) => {
+  // クリック外でメニューを閉じる
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    if (contextMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [contextMenu]);
+
+  const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // skill.path は SKILL.md のパスなので、親ディレクトリを取得
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleCopyPath = async () => {
+    setContextMenu(null);
     const folderPath = skill.path.replace(/\/SKILL\.md$/, '');
     try {
       await writeText(folderPath);
@@ -27,6 +51,20 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
       console.error('Failed to copy path:', err);
     }
   };
+
+  const handleCopyToOtherAgent = async () => {
+    setContextMenu(null);
+    try {
+      await invoke('copy_skill_to_other_agent', { skillName: skill.name, enabled: skill.enabled });
+      setCopyMessage('コピーしました');
+      setTimeout(() => setCopyMessage(null), 2000);
+    } catch (err) {
+      setCopyMessage(String(err));
+      setTimeout(() => setCopyMessage(null), 3000);
+    }
+  };
+
+  const targetAgent = agentType === 'claude' ? 'Codex' : agentType === 'codex' ? 'Claude Code' : null;
 
   const highlightText = (text: string, query?: string) => {
     if (!query) return text;
@@ -60,6 +98,14 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
         {copiedPath && (
           <div className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs rounded shadow-lg z-10">
             パスをコピーしました
+          </div>
+        )}
+        {/* コピーメッセージ */}
+        {copyMessage && (
+          <div className={`absolute top-2 right-2 px-2 py-1 text-white text-xs rounded shadow-lg z-10 ${
+            copyMessage === 'コピーしました' ? 'bg-green-500' : 'bg-red-500'
+          }`}>
+            {copyMessage}
           </div>
         )}
         {/* Toggle Switch */}
@@ -172,6 +218,36 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={menuRef}
+          className="fixed bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 min-w-[180px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={handleCopyPath}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+            スキルパスをコピー
+          </button>
+          {targetAgent && (
+            <button
+              onClick={handleCopyToOtherAgent}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+              </svg>
+              {targetAgent}にコピー
+            </button>
+          )}
         </div>
       )}
     </div>

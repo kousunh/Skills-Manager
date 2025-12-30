@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+
+// 開発モード判定
+const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
 
 interface CategoryEditorProps {
   categories: string[];
@@ -24,6 +28,30 @@ export function CategoryEditor({
   const [editValue, setEditValue] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showCommandConfirm, setShowCommandConfirm] = useState(false);
+  const [addingToCommands, setAddingToCommands] = useState(false);
+  const [addedToCommands, setAddedToCommands] = useState(false);
+  const [canShowCommandButton, setCanShowCommandButton] = useState(false);
+
+  useEffect(() => {
+    if (!DEV_MODE) {
+      invoke<boolean>('can_show_command_button').then(setCanShowCommandButton);
+    }
+  }, []);
+
+  const handleAddToCommands = async () => {
+    setShowCommandConfirm(false);
+    setAddingToCommands(true);
+    try {
+      await invoke('copy_app_to_commands');
+      setAddedToCommands(true);
+    } catch (e) {
+      setErrorMessage(`コマンドの追加に失敗しました: ${e}`);
+      setTimeout(() => setErrorMessage(null), 3000);
+    } finally {
+      setAddingToCommands(false);
+    }
+  };
 
   const handleAdd = () => {
     if (newCategoryName.trim() && !categories.includes(newCategoryName.trim())) {
@@ -99,8 +127,8 @@ export function CategoryEditor({
 
           {/* Confirm delete dialog */}
           {confirmDelete && (
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-yellow-800 mb-3">「{confirmDelete}」カテゴリを削除しますか？</p>
+            <div className="mb-4 p-4 bg-slate-100 border border-slate-300 rounded-lg">
+              <p className="text-slate-700 mb-3">「{confirmDelete}」カテゴリを削除しますか？</p>
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => setConfirmDelete(null)}
@@ -110,7 +138,7 @@ export function CategoryEditor({
                 </button>
                 <button
                   onClick={confirmRemove}
-                  className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="px-3 py-1.5 text-sm bg-slate-700 text-white rounded-lg hover:bg-slate-800"
                 >
                   削除する
                 </button>
@@ -249,6 +277,66 @@ export function CategoryEditor({
           <p className="mt-4 text-xs text-gray-400 text-center">
             矢印ボタンで並び替え
           </p>
+
+          {/* Command confirm dialog */}
+          {canShowCommandButton && showCommandConfirm && (
+            <div className="mt-4 p-4 bg-slate-100 border border-slate-300 rounded-lg">
+              <p className="text-slate-700 mb-3">Claude Code用の /skillsmanager コマンドを作成しますか？</p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowCommandConfirm(false)}
+                  className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleAddToCommands}
+                  className="px-3 py-1.5 text-sm bg-slate-700 text-white rounded-lg hover:bg-slate-800"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Add to commands button */}
+          {canShowCommandButton && !showCommandConfirm && !addedToCommands && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowCommandConfirm(true)}
+                disabled={addingToCommands || addedToCommands}
+                className={`w-full py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                  addedToCommands
+                    ? 'bg-green-100 text-green-700 cursor-default'
+                    : 'bg-gradient-to-r from-slate-700 to-slate-800 text-white hover:from-slate-800 hover:to-slate-900 shadow-md shadow-slate-300 disabled:opacity-50'
+                }`}
+              >
+                {addingToCommands ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    追加中...
+                  </>
+                ) : addedToCommands ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    コマンドに追加しました
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    /skillsmanager コマンドを追加
+                  </>
+                )}
+              </button>
+              <p className="mt-2 text-xs text-gray-400 text-center">
+                Claude Codeから /skillsmanager で起動可能に
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

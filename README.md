@@ -10,29 +10,29 @@ Claude Code・Codex(動作未確認)のAgents Skillsを管理するGUIアプリ�
 
 [Releases](https://github.com/kousunh/Skills-Manager/releases) からダウンロード:
 
-- **macOS (Apple Silicon)**: `SkillManager_aarch64_macos.zip`
-- **macOS (Intel)**: `SkillManager_x64_macos.zip`
-- **Windows**: `SkillManager_windows.zip`
+- **macOS (Apple Silicon)**: `skillsmanager_aarch64_macos.zip`
+- **macOS (Intel)**: `skillsmanager_x64_macos.zip`
+- **Windows**: `skillsmanager_windows.zip`
 
 ## 使い方
 
 1. zipを解凍
 2. アプリを起動
-3. プロジェクトフォルダを選択
+3. プロジェクトフォルダを選択（または「現在のディレクトリで使用」）
 4. アプリが自動で `.claude/` にコピーされ、そこから起動
-5. 以降はプロジェクトフォルダの`.claude/`内のアプリファイルから起動してください。
+5. 以降はプロジェクトフォルダの `.claude/skillsmanager.app`（または `.exe`）から起動
 
 ### macOS: 「壊れているため開けません」エラーの対処
 
 アプリが署名されていないため、macOSでブロックされる場合があります。ターミナルで以下を実行してください：
 
 ```bash
-xattr -cr /path/to/SkillManager.app
+xattr -cr /path/to/skillsmanager.app
 ```
 
 例：
 ```bash
-xattr -cr ~/Downloads/SkillManager.app
+xattr -cr ~/Downloads/skillsmanager.app
 ```
 
 ### Windows: SmartScreenの警告
@@ -42,14 +42,24 @@ xattr -cr ~/Downloads/SkillManager.app
 1. 「詳細情報」をクリック
 2. 「実行」をクリック
 
-別のプロジェクトで使う場合は `.claude/SkillManager.app`（または `.exe`）をコピーしてください。
+別のプロジェクトで使う場合は `.claude/skillsmanager.app`（または `.exe`）をコピーしてください。
 
 ## 機能
 
 - スキルの有効/無効切り替え
-- カテゴリ管理
+- カテゴリ管理（追加・削除・リネーム・並び替え）
 - スキルの検索
-- SKILL.mdや付属リファレンスのプレビュー・編集
+- SKILL.mdや付属ファイルのプレビュー・編集
+- スキルの右クリックメニュー（パスコピー）
+
+## Claude Code / Codex 対応
+
+- アプリ内でClaude CodeとCodexを切り替え可能
+- スキルを右クリックして他エージェントへコピー可能（Claude Code ↔ Codex）
+
+## /skillsmanager コマンド
+
+設定画面から `/skillsmanager` コマンドを作成できます。これにより Claude Code で `/skillsmanager` と入力するだけでアプリを起動できます。
 
 ## ライセンス
 

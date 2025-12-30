@@ -117,6 +117,7 @@ export function SkillList({
               searchHighlight={searchQuery}
               onFileSelect={onFileSelect}
               selectedFile={selectedSkill?.name === skill.name ? selectedFile : undefined}
+              agentType={agentType}
             />
           ))}
         </div>

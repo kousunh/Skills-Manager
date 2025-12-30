@@ -423,6 +423,130 @@ fn save_config(config: Config) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn copy_skill_to_other_agent(skill_name: String, enabled: bool) -> Result<(), String> {
+    let base_dir = get_base_dir().ok_or("Not in a valid project")?;
+    let project_root = base_dir.parent().ok_or("Could not get project root")?;
+
+    let current_type = get_agent_type_internal();
+    let target_dir_name = match current_type.as_str() {
+        "claude" => ".codex",
+        "codex" => ".claude",
+        _ => return Err("Invalid agent type".to_string()),
+    };
+
+    let target_agent_dir = project_root.join(target_dir_name);
+
+    // ターゲットのエージェントディレクトリが存在するかチェック
+    if !target_agent_dir.exists() {
+        return Err(format!("{}ディレクトリが存在しません", target_dir_name));
+    }
+
+    // コピー元のパスを決定（有効/無効に応じて）
+    let src_dir = if enabled {
+        base_dir.join("skills").join(&skill_name)
+    } else {
+        base_dir.join("disabled-skills").join(&skill_name)
+    };
+
+    if !src_dir.exists() {
+        return Err("スキルフォルダが見つかりません".to_string());
+    }
+
+    // コピー先のskillsディレクトリを作成（なければ）
+    let target_skills_dir = target_agent_dir.join("skills");
+    if !target_skills_dir.exists() {
+        fs::create_dir_all(&target_skills_dir).map_err(|e| format!("Failed to create skills directory: {}", e))?;
+    }
+
+    let target_skill_dir = target_skills_dir.join(&skill_name);
+
+    // 同名フォルダが存在するかチェック
+    if target_skill_dir.exists() {
+        return Err(format!("{}に同名のスキル「{}」が既に存在します", target_dir_name, skill_name));
+    }
+
+    // disabled-skillsにも存在するかチェック
+    let target_disabled_dir = target_agent_dir.join("disabled-skills").join(&skill_name);
+    if target_disabled_dir.exists() {
+        return Err(format!("{}に同名のスキル「{}」が既に存在します（無効状態）", target_dir_name, skill_name));
+    }
+
+    // コピー実行
+    copy_dir_all(&src_dir, &target_skill_dir).map_err(|e| format!("Failed to copy skill: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn can_show_command_button() -> bool {
+    // .claudeの時のみ、かつskillsmanager.mdが存在しない場合のみtrue
+    let agent_type = get_agent_type_internal();
+    if agent_type != "claude" {
+        return false;
+    }
+
+    if let Some(base_dir) = get_base_dir() {
+        let md_path = base_dir.join("commands").join("skillsmanager.md");
+        return !md_path.exists();
+    }
+
+    false
+}
+
+#[tauri::command]
+fn copy_app_to_commands() -> Result<(), String> {
+    let base_dir = get_base_dir().ok_or("Not in a valid project")?;
+    let commands_dir = base_dir.join("commands");
+
+    // commandsフォルダがなければ作成
+    if !commands_dir.exists() {
+        fs::create_dir_all(&commands_dir).map_err(|e| format!("Failed to create commands directory: {}", e))?;
+    }
+
+    // OS別のコマンドファイルを作成
+    #[cfg(target_os = "macos")]
+    let md_content = r#"---
+description: Skills Managerアプリを起動
+allowed-tools: Bash(open:*)
+---
+
+Skills Managerアプリケーションを起動:
+
+!`open .claude/skillsmanager.app`
+
+起動のみ行う。それ以外の操作は不要。終了する。
+"#;
+
+    #[cfg(target_os = "windows")]
+    let md_content = r#"---
+description: Skills Managerアプリを起動
+allowed-tools: Bash(powershell:*)
+---
+
+Skills Managerアプリケーションを起動:
+
+!`powershell -Command "Start-Process -FilePath '.\.claude\skillsmanager.exe'"`
+
+起動のみ行う。それ以外の操作は不要。終了する。
+"#;
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let md_content = r#"---
+description: Skills Managerアプリを起動
+---
+
+Skills Managerアプリケーションを起動してください。
+
+起動のみ行う。それ以外の操作は不要。終了する。
+"#;
+
+    fs::write(commands_dir.join("skillsmanager.md"), md_content)
+        .map_err(|e| format!("Failed to create command file: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn read_file(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))
 }
@@ -490,7 +614,10 @@ pub fn run() {
             copy_app_to_project,
             get_agent_type,
             get_available_agents,
-            switch_agent_type
+            switch_agent_type,
+            copy_skill_to_other_agent,
+            can_show_command_button,
+            copy_app_to_commands
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
