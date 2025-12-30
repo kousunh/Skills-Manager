@@ -14,7 +14,60 @@ permissions:
   contents: write
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from tauri.conf.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Check if version is newer than latest release
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Get latest release tag
+          LATEST=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')
+
+          if [ -z "$LATEST" ]; then
+            echo "No existing releases found. Proceeding with first release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Remove 'v' prefix for comparison
+          LATEST_VERSION="${LATEST#v}"
+          echo "Current version: $VERSION"
+          echo "Latest release: $LATEST_VERSION"
+
+          # Compare versions using sort -V
+          HIGHER=$(printf '%s\n%s' "$LATEST_VERSION" "$VERSION" | sort -V | tail -n1)
+
+          if [ "$VERSION" = "$LATEST_VERSION" ]; then
+            echo "::error::Version v$VERSION already released. Please bump the version."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 1
+          elif [ "$HIGHER" = "$LATEST_VERSION" ]; then
+            echo "::error::Version v$VERSION is older than latest release v$LATEST_VERSION. Please bump the version."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "Version v$VERSION is newer than v$LATEST_VERSION. Proceeding with build."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
   build-macos:
+    needs: check-version
     strategy:
       matrix:
         include:
@@ -50,6 +103,7 @@ jobs:
           path: src-tauri/target/${{ matrix.target }}/release/bundle/macos/SkillManager_${{ matrix.arch }}_macos.zip
 
   build-windows:
+    needs: check-version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,16 +142,10 @@ jobs:
           path: SkillManager_windows.zip
 
   release:
-    needs: [build-macos, build-windows]
+    needs: [check-version, build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Get version from tauri.conf.json
-        id: version
-        run: |
-          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - uses: actions/download-artifact@v4
         with:
@@ -106,10 +154,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: SkillManager v${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: SkillManager v${{ needs.check-version.outputs.version }}
           body: |
-            ## SkillManager v${{ steps.version.outputs.version }}
+            ## SkillManager v${{ needs.check-version.outputs.version }}
 
             Portable builds from commit ${{ github.sha }}
 
