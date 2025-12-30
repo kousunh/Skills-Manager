@@ -95,12 +95,12 @@ jobs:
       - name: Zip app
         run: |
           cd src-tauri/target/${{ matrix.target }}/release/bundle/macos
-          zip -r SkillManager_${{ matrix.arch }}_macos.zip SkillManager.app
+          zip -r skillsmanager_${{ matrix.arch }}_macos.zip skillsmanager.app
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/macos/SkillManager_${{ matrix.arch }}_macos.zip
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/macos/skillsmanager_${{ matrix.arch }}_macos.zip
 
   build-windows:
     needs: check-version
@@ -126,11 +126,11 @@ jobs:
           Write-Host "Contents of release directory:"
           Get-ChildItem -Path "src-tauri/target/release" -File | Where-Object { $_.Extension -eq ".exe" }
 
-          # Find the exe (could be SkillManager.exe or app.exe)
+          # Find the exe (could be skillsmanager.exe or app.exe)
           $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" | Where-Object { $_.Name -notmatch "build-script" } | Select-Object -First 1
           if ($exe) {
             Write-Host "Found exe: $($exe.FullName)"
-            Compress-Archive -Path $exe.FullName -DestinationPath "SkillManager_windows.zip"
+            Compress-Archive -Path $exe.FullName -DestinationPath "skillsmanager_windows.zip"
           } else {
             Write-Host "No exe found in release directory"
             exit 1
@@ -139,7 +139,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: SkillManager_windows.zip
+          path: skillsmanager_windows.zip
 
   release:
     needs: [check-version, build-macos, build-windows]
@@ -155,14 +155,14 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.check-version.outputs.version }}
-          name: SkillManager v${{ needs.check-version.outputs.version }}
+          name: skillsmanager v${{ needs.check-version.outputs.version }}
           body: |
-            ## SkillManager v${{ needs.check-version.outputs.version }}
+            ## skillsmanager v${{ needs.check-version.outputs.version }}
 
             Portable builds from commit ${{ github.sha }}
 
-            **macOS**: Unzip and copy `SkillManager.app` to your project's `.claude/` folder
-            **Windows**: Unzip and copy `SkillManager.exe` to your project's `.claude/` folder
+            **macOS**: Unzip and copy `skillsmanager.app` to your project's `.claude/` folder
+            **Windows**: Unzip and copy `skillsmanager.exe` to your project's `.claude/` folder
           files: |
             artifacts/macos-aarch64/*.zip
             artifacts/macos-x64/*.zip
