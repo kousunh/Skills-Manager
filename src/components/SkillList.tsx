@@ -1,6 +1,8 @@
 import type { Skill, SkillFile } from '../types';
 import { SkillCard } from './SkillCard';
 
+type AgentType = 'claude' | 'codex' | 'none';
+
 interface SkillListProps {
   skills: Skill[];
   selectedSkill: Skill | null;
@@ -11,6 +13,9 @@ interface SkillListProps {
   searchQuery?: string;
   onFileSelect?: (file: SkillFile | null) => void;
   selectedFile?: SkillFile | null;
+  agentType?: AgentType;
+  availableAgents?: AgentType[];
+  onSwitchAgent?: (target: AgentType) => void;
 }
 
 export function SkillList({
@@ -22,7 +27,10 @@ export function SkillList({
   onDisableAll,
   searchQuery,
   onFileSelect,
-  selectedFile
+  selectedFile,
+  agentType = 'none',
+  availableAgents = [],
+  onSwitchAgent
 }: SkillListProps) {
   const enabledCount = skills.filter(s => s.enabled).length;
   const totalCount = skills.length;
@@ -43,12 +51,32 @@ export function SkillList({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       {/* Header with controls */}
-      <div className="flex items-center justify-between sticky top-0 bg-gray-100 py-2 z-10">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span className="font-medium text-gray-700">{totalCount}件</span>
-          <span>({enabledCount}件 有効)</span>
+      <div className="flex items-center justify-between sticky top-0 bg-gray-100 py-1 z-10">
+        <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => agentType !== 'claude' && onSwitchAgent?.('claude')}
+              disabled={agentType === 'claude' || !availableAgents.includes('claude')}
+              className={`${agentType === 'claude' ? 'text-gray-700 font-medium' : availableAgents.includes('claude') ? 'text-gray-400 hover:text-gray-600 cursor-pointer' : 'text-gray-300 cursor-not-allowed'}`}
+            >
+              Claude Code
+            </button>
+            <span className="text-gray-400">/</span>
+            <button
+              onClick={() => agentType !== 'codex' && onSwitchAgent?.('codex')}
+              disabled={agentType === 'codex' || !availableAgents.includes('codex')}
+              className={`${agentType === 'codex' ? 'text-gray-700 font-medium' : availableAgents.includes('codex') ? 'text-gray-400 hover:text-gray-600 cursor-pointer' : 'text-gray-300 cursor-not-allowed'}`}
+            >
+              Codex
+            </button>
+          </div>
+          <span className="text-gray-300">|</span>
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="font-medium text-gray-700">{totalCount}件</span>
+            <span>({enabledCount}件 有効)</span>
+          </div>
         </div>
         <div className="flex gap-2">
           <button

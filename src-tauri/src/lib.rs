@@ -80,6 +80,99 @@ fn is_in_claude_dir() -> bool {
         .unwrap_or(false)
 }
 
+fn get_agent_type_internal() -> String {
+    get_base_dir()
+        .and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
+        .map(|name| match name.as_str() {
+            ".claude" => "claude".to_string(),
+            ".codex" => "codex".to_string(),
+            _ => "none".to_string(),
+        })
+        .unwrap_or_else(|| "none".to_string())
+}
+
+#[tauri::command]
+fn get_agent_type() -> String {
+    get_agent_type_internal()
+}
+
+#[tauri::command]
+fn get_available_agents() -> Vec<String> {
+    let mut available = Vec::new();
+
+    if let Some(base_dir) = get_base_dir() {
+        if let Some(project_root) = base_dir.parent() {
+            if project_root.join(".claude").exists() {
+                available.push("claude".to_string());
+            }
+            if project_root.join(".codex").exists() {
+                available.push("codex".to_string());
+            }
+        }
+    }
+
+    available
+}
+
+#[tauri::command]
+fn switch_agent_type(target: String) -> Result<(), String> {
+    let current_type = get_agent_type_internal();
+    if current_type == target {
+        return Ok(());
+    }
+
+    let target_dir_name = match target.as_str() {
+        "claude" => ".claude",
+        "codex" => ".codex",
+        _ => return Err("Invalid target type".to_string()),
+    };
+
+    // 現在のベースディレクトリの親（プロジェクトルート）を取得
+    let base_dir = get_base_dir().ok_or("Could not get base directory")?;
+    let project_root = base_dir.parent().ok_or("Could not get project root")?;
+    let target_dir = project_root.join(target_dir_name);
+
+    // ターゲットディレクトリを作成
+    fs::create_dir_all(&target_dir).map_err(|e| format!("Failed to create directory: {}", e))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let app_bundle = get_app_bundle_path().ok_or("Could not find app bundle")?;
+        let app_name = app_bundle.file_name().ok_or("Could not get app name")?;
+        let target_app = target_dir.join(app_name);
+
+        if target_app.exists() {
+            fs::remove_dir_all(&target_app).map_err(|e| format!("Failed to remove existing app: {}", e))?;
+        }
+
+        copy_dir_all(&app_bundle, &target_app).map_err(|e| format!("Failed to copy app: {}", e))?;
+
+        Command::new("open")
+            .arg(&target_app)
+            .spawn()
+            .map_err(|e| format!("Failed to launch app: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let exe_path = get_app_path().ok_or("Could not find exe path")?;
+        let exe_name = exe_path.file_name().ok_or("Could not get exe name")?;
+        let target_exe = target_dir.join(exe_name);
+
+        if target_exe.exists() {
+            fs::remove_file(&target_exe).map_err(|e| format!("Failed to remove existing exe: {}", e))?;
+        }
+
+        fs::copy(&exe_path, &target_exe).map_err(|e| format!("Failed to copy exe: {}", e))?;
+
+        Command::new(&target_exe)
+            .spawn()
+            .map_err(|e| format!("Failed to launch app: {}", e))?;
+    }
+
+    Ok(())
+}
+
 fn get_config_path() -> Option<PathBuf> {
     get_base_dir().map(|p| p.join("skill-manager-config.json"))
 }
@@ -389,7 +482,10 @@ pub fn run() {
             list_directory,
             check_setup,
             get_current_project_path,
-            copy_app_to_project
+            copy_app_to_project,
+            get_agent_type,
+            get_available_agents,
+            switch_agent_type
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

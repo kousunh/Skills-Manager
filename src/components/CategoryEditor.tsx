@@ -143,7 +143,7 @@ export function CategoryEditor({
           </div>
 
           {/* Category list */}
-          <div className="space-y-2 max-h-72 overflow-y-auto">
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
             {categories.map((category, index) => (
               <div
                 key={category}

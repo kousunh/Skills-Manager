@@ -27,7 +27,7 @@ export function Header({
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Skill Manager</h1>
+              <h1 className="text-xl font-bold tracking-tight">Skills Manager</h1>
               <p className="text-xs text-slate-400">Agent Skills 管理アプリ</p>
             </div>
           </div>

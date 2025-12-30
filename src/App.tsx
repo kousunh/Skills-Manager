@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { exit } from '@tauri-apps/plugin-process';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { SkillList } from './components/SkillList';
@@ -9,16 +10,28 @@ import { ProjectSelector } from './components/ProjectSelector';
 import { useSkills } from './hooks/useSkills';
 import type { SkillFile } from './types';
 
+// 開発モード: レイアウト確認用（フォルダ選択をスキップ）
+const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
+
+type AgentType = 'claude' | 'codex' | 'none';
+
 function App() {
-  const [isSetup, setIsSetup] = useState<boolean | undefined>(undefined);
+  const [isSetup, setIsSetup] = useState<boolean | undefined>(DEV_MODE ? true : undefined);
+  const [agentType, setAgentType] = useState<AgentType>('none');
+  const [availableAgents, setAvailableAgents] = useState<AgentType[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(null);
 
   useEffect(() => {
+    if (DEV_MODE) return; // 開発モードではチェックをスキップ
     const checkSetup = async () => {
       const setup = await invoke<boolean>('check_setup');
       setIsSetup(setup);
+      const type = await invoke<AgentType>('get_agent_type');
+      setAgentType(type);
+      const available = await invoke<string[]>('get_available_agents');
+      setAvailableAgents(available as AgentType[]);
     };
     checkSetup();
   }, []);
@@ -56,6 +69,16 @@ function App() {
 
     return () => clearInterval(interval);
   }, [isSetup, reload]);
+
+  // エージェントタイプ切り替え
+  const handleSwitchAgent = useCallback(async (target: AgentType) => {
+    try {
+      await invoke('switch_agent_type', { target });
+      await exit(0);
+    } catch (e) {
+      console.error('Failed to switch agent:', e);
+    }
+  }, []);
 
   // 検索フィルター
   const filteredSkills = useMemo(() => {
@@ -149,6 +172,9 @@ function App() {
             searchQuery={searchQuery}
             onFileSelect={setSelectedFile}
             selectedFile={selectedFile}
+            agentType={agentType}
+            availableAgents={availableAgents}
+            onSwitchAgent={handleSwitchAgent}
           />
         </div>
 

@@ -1,10 +1,11 @@
 {
   "name": "skill-manager-temp",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:layout": "VITE_DEV_MODE=true tauri dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

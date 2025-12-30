@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "SkillManager",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "identifier": "com.claudecode.skillmanager",
   "build": {
     "frontendDist": "../dist",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Skill Manager",
+        "title": "Skills Manager",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

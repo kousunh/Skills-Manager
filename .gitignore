@@ -27,3 +27,6 @@ distribution/*.app
 .kamui/model-versions-cache.json
 .kamui/manager/
 .worktrees/
+
+# Development mode config
+skill-manager-config.json
