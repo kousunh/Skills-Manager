@@ -93,9 +93,9 @@ export function SkillPreview({
   }, [selectedFile]);
 
   const handleFileClick = async (file: SkillFile) => {
-    // ディレクトリ内のファイルをクリックした場合
-    if (file.is_directory) {
-      setPathHistory(prev => currentDir ? [...prev, currentDir] : prev);
+    // ディレクトリ内のファイル/フォルダをクリックした場合、現在のディレクトリを履歴に追加
+    if (currentDir) {
+      setPathHistory(prev => [...prev, currentDir]);
     }
     onFileSelect?.(file);
   };
@@ -248,17 +248,15 @@ export function SkillPreview({
                 </button>
               </div>
             ) : (
-              !currentDir && (
-                <button
-                  onClick={handleStartEdit}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  編集
-                </button>
-              )
+              <button
+                onClick={handleStartEdit}
+                className={`flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 ${currentDir ? 'invisible' : ''}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                編集
+              </button>
             )}
           </div>
         </div>
@@ -301,6 +299,18 @@ export function SkillPreview({
             )}
             {selectedFile && !selectedFile.is_directory && (
               <>
+                {/* 親フォルダがある場合は表示してクリック可能に */}
+                {pathHistory.length > 0 && (
+                  <>
+                    <span className="text-slate-400">/</span>
+                    <button
+                      onClick={handleBackToParent}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                    >
+                      {pathHistory[pathHistory.length - 1].name}
+                    </button>
+                  </>
+                )}
                 <span className="text-slate-400">/</span>
                 <span className="text-slate-600">{selectedFile.name}</span>
               </>

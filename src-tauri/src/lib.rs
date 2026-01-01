@@ -302,7 +302,7 @@ fn load_skills() -> Result<Vec<Skill>, String> {
             for entry in entries.filter_map(|e| e.ok()) {
                 let path = entry.path();
                 let name = entry.file_name().to_string_lossy().to_string();
-                if name == "SKILL.md" {
+                if name.eq_ignore_ascii_case("skill.md") {
                     continue;
                 }
                 files.push(SkillFile {
@@ -331,7 +331,7 @@ fn load_skills() -> Result<Vec<Skill>, String> {
             .into_iter()
             .filter_map(|e| e.ok())
         {
-            if entry.file_name() == "SKILL.md" {
+            if entry.file_name().to_string_lossy().eq_ignore_ascii_case("skill.md") {
                 if let Some(skill_dir) = entry.path().parent() {
                     let skill_name = skill_dir
                         .file_name()
