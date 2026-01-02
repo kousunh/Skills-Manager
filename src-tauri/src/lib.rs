@@ -5,6 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use walkdir::WalkDir;
+use chrono;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SkillFile {
@@ -29,6 +30,16 @@ pub struct Config {
     pub categories: IndexMap<String, Vec<String>>,
     #[serde(default)]
     pub category_order: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillConflictInfo {
+    pub exists: bool,
+    pub target_agent: String,
+    pub is_disabled: bool,
+    pub source_modified: Option<String>,
+    pub target_modified: Option<String>,
 }
 
 fn get_app_path() -> Option<PathBuf> {
@@ -423,8 +434,87 @@ fn save_config(config: Config) -> Result<(), String> {
     fs::write(path, json).map_err(|e| e.to_string())
 }
 
+fn get_dir_modified_time(path: &PathBuf) -> Option<String> {
+    // ディレクトリ内のファイルの最新更新日時を取得
+    let mut latest: Option<std::time::SystemTime> = None;
+
+    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+        if let Ok(metadata) = entry.metadata() {
+            if let Ok(modified) = metadata.modified() {
+                latest = Some(match latest {
+                    Some(current) => if modified > current { modified } else { current },
+                    None => modified,
+                });
+            }
+        }
+    }
+
+    latest.map(|time| {
+        let datetime: chrono::DateTime<chrono::Local> = time.into();
+        datetime.format("%Y/%m/%d %H:%M").to_string()
+    })
+}
+
 #[tauri::command]
-fn copy_skill_to_other_agent(skill_name: String, enabled: bool) -> Result<(), String> {
+fn check_skill_conflict(skill_name: String, enabled: bool) -> Result<SkillConflictInfo, String> {
+    let base_dir = get_base_dir().ok_or("Not in a valid project")?;
+    let project_root = base_dir.parent().ok_or("Could not get project root")?;
+
+    let current_type = get_agent_type_internal();
+    let target_dir_name = match current_type.as_str() {
+        "claude" => ".codex",
+        "codex" => ".claude",
+        _ => return Err("Invalid agent type".to_string()),
+    };
+
+    let target_agent_dir = project_root.join(target_dir_name);
+
+    if !target_agent_dir.exists() {
+        return Err(format!("{}ディレクトリが存在しません", target_dir_name));
+    }
+
+    // コピー元のパスを決定
+    let src_dir = if enabled {
+        base_dir.join("skills").join(&skill_name)
+    } else {
+        base_dir.join("disabled-skills").join(&skill_name)
+    };
+
+    if !src_dir.exists() {
+        return Err("スキルフォルダが見つかりません".to_string());
+    }
+
+    let target_skill_dir = target_agent_dir.join("skills").join(&skill_name);
+    let target_disabled_dir = target_agent_dir.join("disabled-skills").join(&skill_name);
+
+    let (exists, is_disabled, target_dir) = if target_skill_dir.exists() {
+        (true, false, target_skill_dir)
+    } else if target_disabled_dir.exists() {
+        (true, true, target_disabled_dir)
+    } else {
+        return Ok(SkillConflictInfo {
+            exists: false,
+            target_agent: target_dir_name.to_string(),
+            is_disabled: false,
+            source_modified: None,
+            target_modified: None,
+        });
+    };
+
+    let source_modified = get_dir_modified_time(&src_dir);
+    let target_modified = get_dir_modified_time(&target_dir);
+
+    Ok(SkillConflictInfo {
+        exists,
+        target_agent: target_dir_name.to_string(),
+        is_disabled,
+        source_modified,
+        target_modified,
+    })
+}
+
+#[tauri::command]
+fn copy_skill_to_other_agent(skill_name: String, enabled: bool, force: bool) -> Result<(), String> {
     let base_dir = get_base_dir().ok_or("Not in a valid project")?;
     let project_root = base_dir.parent().ok_or("Could not get project root")?;
 
@@ -460,16 +550,24 @@ fn copy_skill_to_other_agent(skill_name: String, enabled: bool) -> Result<(), St
     }
 
     let target_skill_dir = target_skills_dir.join(&skill_name);
+    let target_disabled_dir = target_agent_dir.join("disabled-skills").join(&skill_name);
 
     // 同名フォルダが存在するかチェック
     if target_skill_dir.exists() {
-        return Err(format!("{}に同名のスキル「{}」が既に存在します", target_dir_name, skill_name));
+        if force {
+            fs::remove_dir_all(&target_skill_dir).map_err(|e| format!("Failed to remove existing skill: {}", e))?;
+        } else {
+            return Err(format!("{}に同名のスキル「{}」が既に存在します", target_dir_name, skill_name));
+        }
     }
 
     // disabled-skillsにも存在するかチェック
-    let target_disabled_dir = target_agent_dir.join("disabled-skills").join(&skill_name);
     if target_disabled_dir.exists() {
-        return Err(format!("{}に同名のスキル「{}」が既に存在します（無効状態）", target_dir_name, skill_name));
+        if force {
+            fs::remove_dir_all(&target_disabled_dir).map_err(|e| format!("Failed to remove existing skill: {}", e))?;
+        } else {
+            return Err(format!("{}に同名のスキル「{}」が既に存在します（無効状態）", target_dir_name, skill_name));
+        }
     }
 
     // コピー実行
@@ -623,6 +721,7 @@ pub fn run() {
             get_agent_type,
             get_available_agents,
             switch_agent_type,
+            check_skill_conflict,
             copy_skill_to_other_agent,
             can_show_command_button,
             copy_app_to_commands

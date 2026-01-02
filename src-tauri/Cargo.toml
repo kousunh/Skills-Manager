@@ -29,3 +29,4 @@ tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
 walkdir = "2.5"
 indexmap = { version = "2.0", features = ["serde"] }
+chrono = "0.4"

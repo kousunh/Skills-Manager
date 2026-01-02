@@ -17,3 +17,11 @@ export interface Config {
   categories: Record<string, string[]>;
   categoryOrder?: string[];  // カテゴリの表示順序
 }
+
+export interface SkillConflictInfo {
+  exists: boolean;
+  targetAgent: string;
+  isDisabled: boolean;
+  sourceModified: string | null;
+  targetModified: string | null;
+}

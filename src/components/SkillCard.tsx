@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { invoke } from '@tauri-apps/api/core';
-import type { Skill, SkillFile } from '../types';
+import type { Skill, SkillFile, SkillConflictInfo } from '../types';
 
 type AgentType = 'claude' | 'codex' | 'none';
 
@@ -20,7 +20,9 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
   const [copiedPath, setCopiedPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [conflictDialog, setConflictDialog] = useState<SkillConflictInfo | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // クリック外でメニューを閉じる
   useEffect(() => {
@@ -55,13 +57,41 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
   const handleCopyToOtherAgent = async () => {
     setContextMenu(null);
     try {
-      await invoke('copy_skill_to_other_agent', { skillName: skill.name, enabled: skill.enabled });
-      setCopyMessage('コピーしました');
+      // まず競合チェック
+      const conflictInfo = await invoke<SkillConflictInfo>('check_skill_conflict', {
+        skillName: skill.name,
+        enabled: skill.enabled
+      });
+
+      if (conflictInfo.exists) {
+        // 競合がある場合はダイアログを表示
+        setConflictDialog(conflictInfo);
+      } else {
+        // 競合がなければそのままコピー
+        await invoke('copy_skill_to_other_agent', { skillName: skill.name, enabled: skill.enabled, force: false });
+        setCopyMessage('コピーしました');
+        setTimeout(() => setCopyMessage(null), 2000);
+      }
+    } catch (err) {
+      setCopyMessage(String(err));
+      setTimeout(() => setCopyMessage(null), 3000);
+    }
+  };
+
+  const handleOverwriteCopy = async () => {
+    setConflictDialog(null);
+    try {
+      await invoke('copy_skill_to_other_agent', { skillName: skill.name, enabled: skill.enabled, force: true });
+      setCopyMessage('上書きコピーしました');
       setTimeout(() => setCopyMessage(null), 2000);
     } catch (err) {
       setCopyMessage(String(err));
       setTimeout(() => setCopyMessage(null), 3000);
     }
+  };
+
+  const handleCancelCopy = () => {
+    setConflictDialog(null);
   };
 
   const targetAgent = agentType === 'claude' ? 'Codex' : agentType === 'codex' ? 'Claude Code' : null;
@@ -248,6 +278,55 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
               {targetAgent}にコピー
             </button>
           )}
+        </div>
+      )}
+
+      {/* Overwrite Confirmation Dialog */}
+      {conflictDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div
+            ref={dialogRef}
+            className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              スキルの上書き確認
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {conflictDialog.targetAgent}に同名のスキル「{skill.name}」が既に存在します
+              {conflictDialog.isDisabled && '（無効状態）'}。
+              上書きしますか？
+            </p>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">コピー元（現在）:</span>
+                <span className="font-medium text-gray-900">
+                  {conflictDialog.sourceModified || '不明'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">コピー先（{conflictDialog.targetAgent}）:</span>
+                <span className="font-medium text-gray-900">
+                  {conflictDialog.targetModified || '不明'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelCopy}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                いいえ
+              </button>
+              <button
+                onClick={handleOverwriteCopy}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+              >
+                はい、上書きする
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
