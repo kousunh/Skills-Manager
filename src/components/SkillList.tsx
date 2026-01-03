@@ -1,13 +1,18 @@
-import type { Skill, SkillFile } from '../types';
+import type { Skill, SkillFile, SlashCommand } from '../types';
 import { SkillCard } from './SkillCard';
+import { SlashCommandCard } from './SlashCommandCard';
 
 type AgentType = 'claude' | 'codex' | 'none';
 
 interface SkillListProps {
   skills: Skill[];
+  slashCommands?: SlashCommand[];
   selectedSkill: Skill | null;
+  selectedSlashCommand?: SlashCommand | null;
   onSelectSkill: (skill: Skill) => void;
+  onSelectSlashCommand?: (command: SlashCommand) => void;
   onToggleSkill: (skillName: string) => void;
+  onToggleSlashCommand?: (commandName: string) => void;
   onEnableAll: () => void;
   onDisableAll: () => void;
   searchQuery?: string;
@@ -20,9 +25,13 @@ interface SkillListProps {
 
 export function SkillList({
   skills,
+  slashCommands = [],
   selectedSkill,
+  selectedSlashCommand,
   onSelectSkill,
+  onSelectSlashCommand,
   onToggleSkill,
+  onToggleSlashCommand,
   onEnableAll,
   onDisableAll,
   searchQuery,
@@ -34,6 +43,8 @@ export function SkillList({
 }: SkillListProps) {
   const enabledCount = skills.filter(s => s.enabled).length;
   const totalCount = skills.length;
+  const commandEnabledCount = slashCommands.filter(c => c.enabled).length;
+  const commandTotalCount = slashCommands.length;
 
   return (
     <div className="flex flex-col gap-2">
@@ -94,7 +105,7 @@ export function SkillList({
       </div>
 
       {/* Skill cards or empty state */}
-      {skills.length === 0 ? (
+      {skills.length === 0 && slashCommands.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
           <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -107,6 +118,7 @@ export function SkillList({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
+          {/* スキルカード */}
           {skills.map((skill) => (
             <SkillCard
               key={skill.name}
@@ -120,6 +132,33 @@ export function SkillList({
               agentType={agentType}
             />
           ))}
+
+          {/* スラッシュコマンドセクション */}
+          {slashCommands.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 mt-4 mb-2 px-1">
+                <div className="flex items-center gap-1.5 text-sm text-purple-600 font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                  </svg>
+                  カスタムスラッシュコマンド
+                </div>
+                <span className="text-xs text-gray-500">
+                  ({commandEnabledCount}/{commandTotalCount} 有効)
+                </span>
+              </div>
+              {slashCommands.map((command) => (
+                <SlashCommandCard
+                  key={command.name}
+                  command={command}
+                  isSelected={selectedSlashCommand?.name === command.name}
+                  onSelect={() => onSelectSlashCommand?.(command)}
+                  onToggle={() => onToggleSlashCommand?.(command.name)}
+                  searchHighlight={searchQuery}
+                />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

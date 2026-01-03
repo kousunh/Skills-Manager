@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Skill, Config } from '../types';
+import type { Skill, SlashCommand, Config } from '../types';
 import { invoke } from '@tauri-apps/api/core';
 
 const normalizeConfig = (loadedSkills: Skill[], loadedConfig: Config): Config => {
@@ -47,9 +47,11 @@ const normalizeConfig = (loadedSkills: Skill[], loadedConfig: Config): Config =>
 
 export function useSkills(isReady: boolean) {
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [config, setConfig] = useState<Config>({ categories: {}, categoryOrder: [] });
+  const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
+  const [config, setConfig] = useState<Config>({ categories: {}, categoryOrder: [], loadSlashCommands: true });
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommand | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +70,23 @@ export function useSkills(isReady: boolean) {
 
       setSkills(loadedSkills);
 
+      // スラッシュコマンドをロード（設定がtrueの場合のみ）
+      const shouldLoadCommands = loadedConfig.loadSlashCommands !== false;
+      if (shouldLoadCommands) {
+        const loadedCommands = await invoke<SlashCommand[]>('load_slash_commands');
+        setSlashCommands(loadedCommands);
+
+        // selectedSlashCommandを新しいデータで更新
+        setSelectedSlashCommand(prev => {
+          if (!prev) return null;
+          const updated = loadedCommands.find(c => c.name === prev.name);
+          return updated || null;
+        });
+      } else {
+        setSlashCommands([]);
+        setSelectedSlashCommand(null);
+      }
+
       // selectedSkillを新しいデータで更新
       setSelectedSkill(prev => {
         if (!prev) return null;
@@ -76,6 +95,8 @@ export function useSkills(isReady: boolean) {
       });
 
       const normalizedConfig = normalizeConfig(loadedSkills, loadedConfig);
+      // loadSlashCommandsを保持
+      normalizedConfig.loadSlashCommands = loadedConfig.loadSlashCommands !== false;
       setConfig(normalizedConfig);
 
       // Set initial category
@@ -191,6 +212,59 @@ export function useSkills(isReady: boolean) {
       console.error('Failed to toggle skill:', err);
     }
   }, [skills, setEnabledForSkillNames]);
+
+  // スラッシュコマンドのパス更新
+  const updateCommandPath = useCallback((command: SlashCommand, newEnabled: boolean): SlashCommand => {
+    const updatePath = (path: string): string => {
+      if (newEnabled) {
+        return path.replace(/\/disabled-commands\//, '/commands/');
+      } else {
+        return path.replace(/\/commands\//, '/disabled-commands/');
+      }
+    };
+
+    return {
+      ...command,
+      enabled: newEnabled,
+      path: updatePath(command.path),
+    };
+  }, []);
+
+  const toggleSlashCommand = useCallback(async (commandName: string) => {
+    const command = slashCommands.find(c => c.name === commandName);
+    if (!command) return;
+
+    const newEnabled = !command.enabled;
+
+    try {
+      await invoke('toggle_slash_command', { commandName, enabled: newEnabled });
+      setSlashCommands(prev => prev.map(c =>
+        c.name === commandName ? updateCommandPath(c, newEnabled) : c
+      ));
+      setSelectedSlashCommand(prev =>
+        prev && prev.name === commandName ? updateCommandPath(prev, newEnabled) : prev
+      );
+    } catch (err) {
+      console.error('Failed to toggle slash command:', err);
+    }
+  }, [slashCommands, updateCommandPath]);
+
+  const setLoadSlashCommands = useCallback(async (value: boolean) => {
+    updateConfig(prev => ({ ...prev, loadSlashCommands: value }));
+    if (value) {
+      // オンにした場合は再読み込み
+      try {
+        const loadedCommands = await invoke<SlashCommand[]>('load_slash_commands');
+        setSlashCommands(loadedCommands);
+      } catch (err) {
+        console.error('Failed to load slash commands:', err);
+      }
+    } else {
+      // オフにした場合はクリア
+      setSlashCommands([]);
+      setSelectedSlashCommand(null);
+    }
+  }, [updateConfig]);
 
   const setEnabledForCategory = useCallback(async (enabled: boolean) => {
     const skillNames = config.categories[selectedCategory] || [];
@@ -313,16 +387,21 @@ export function useSkills(isReady: boolean) {
 
   return {
     skills,
+    slashCommands,
     config,
     categories,
     selectedCategory,
     setSelectedCategory,
     selectedSkill,
     setSelectedSkill,
+    selectedSlashCommand,
+    setSelectedSlashCommand,
     skillsInCategory,
     skillCounts,
     enabledCounts,
     toggleSkill,
+    toggleSlashCommand,
+    setLoadSlashCommands,
     enableAllInCategory,
     disableAllInCategory,
     moveSkillToCategory,

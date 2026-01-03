@@ -12,6 +12,8 @@ interface CategoryEditorProps {
   onRemoveCategory: (name: string) => void;
   onRenameCategory: (oldName: string, newName: string) => void;
   onReorderCategories: (newOrder: string[]) => void;
+  loadSlashCommands?: boolean;
+  onLoadSlashCommandsChange?: (value: boolean) => void;
 }
 
 export function CategoryEditor({
@@ -21,7 +23,9 @@ export function CategoryEditor({
   onAddCategory,
   onRemoveCategory,
   onRenameCategory,
-  onReorderCategories
+  onReorderCategories,
+  loadSlashCommands = true,
+  onLoadSlashCommandsChange
 }: CategoryEditorProps) {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -277,6 +281,41 @@ export function CategoryEditor({
           <p className="mt-4 text-xs text-gray-400 text-center">
             矢印ボタンで並び替え
           </p>
+
+          {/* Slash commands toggle */}
+          {onLoadSlashCommandsChange && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-xl border border-purple-200">
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                  </svg>
+                  <div>
+                    <span className="font-medium text-gray-700">カスタムスラッシュコマンドを読み込む</span>
+                    <p className="text-xs text-gray-500 mt-0.5">.claude/commands/ 内の .md ファイルを管理</p>
+                  </div>
+                </div>
+                <label
+                  className="relative inline-flex items-center cursor-pointer shrink-0"
+                >
+                  <input
+                    type="checkbox"
+                    checked={loadSlashCommands}
+                    onChange={(e) => onLoadSlashCommandsChange(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-all duration-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100
+                    ${loadSlashCommands
+                      ? 'bg-gradient-to-r from-purple-400 to-purple-500'
+                      : 'bg-gray-300'
+                    }
+                    after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:duration-300 after:shadow-sm
+                    peer-checked:after:translate-x-5
+                  `} />
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* Command confirm dialog */}
           {canShowCommandButton && showCommandConfirm && (
