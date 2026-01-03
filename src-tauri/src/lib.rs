@@ -24,12 +24,29 @@ pub struct Skill {
     pub files: Vec<SkillFile>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SlashCommand {
+    pub name: String,
+    pub description: String,
+    pub enabled: bool,
+    pub content: String,
+    pub path: String,
+}
+
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     pub categories: IndexMap<String, Vec<String>>,
     #[serde(default)]
     pub category_order: Vec<String>,
+    #[serde(default = "default_true")]
+    pub load_slash_commands: bool,
+    #[serde(default)]
+    pub command_categories: IndexMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -195,6 +212,14 @@ fn get_skills_dir() -> Option<PathBuf> {
 
 fn get_disabled_skills_dir() -> Option<PathBuf> {
     get_base_dir().map(|p| p.join("disabled-skills"))
+}
+
+fn get_commands_dir() -> Option<PathBuf> {
+    get_base_dir().map(|p| p.join("commands"))
+}
+
+fn get_disabled_commands_dir() -> Option<PathBuf> {
+    get_base_dir().map(|p| p.join("disabled-commands"))
 }
 
 #[tauri::command]
@@ -399,6 +424,107 @@ fn toggle_skill(skill_name: String, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
+fn parse_command_description(content: &str) -> String {
+    // frontmatterのdescriptionを探す
+    let mut in_frontmatter = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            if in_frontmatter {
+                break; // frontmatter終了
+            }
+            in_frontmatter = true;
+            continue;
+        }
+        if in_frontmatter && trimmed.starts_with("description:") {
+            return trimmed.strip_prefix("description:").unwrap_or("").trim().trim_matches('"').to_string();
+        }
+    }
+
+    // frontmatterがなければ最初の非空行を使用
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() && !trimmed.starts_with('#') && !trimmed.starts_with("---") {
+            return trimmed.chars().take(100).collect();
+        }
+    }
+
+    "No description".to_string()
+}
+
+#[tauri::command]
+fn load_slash_commands() -> Result<Vec<SlashCommand>, String> {
+    let commands_dir = get_commands_dir().ok_or("Not in a valid project")?;
+    let disabled_dir = get_disabled_commands_dir().ok_or("Not in a valid project")?;
+
+    let mut commands = Vec::new();
+
+    let load_from_dir = |dir: &PathBuf, enabled: bool, commands: &mut Vec<SlashCommand>| {
+        if !dir.exists() {
+            return;
+        }
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                // .mdファイルのみ、サブディレクトリは無視
+                if path.is_file() {
+                    if let Some(ext) = path.extension() {
+                        if ext.eq_ignore_ascii_case("md") {
+                            let name = path.file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("unknown")
+                                .to_string();
+
+                            let content = fs::read_to_string(&path).unwrap_or_default();
+                            let description = parse_command_description(&content);
+
+                            commands.push(SlashCommand {
+                                name,
+                                description,
+                                enabled,
+                                content,
+                                path: path.to_string_lossy().to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    load_from_dir(&commands_dir, true, &mut commands);
+    load_from_dir(&disabled_dir, false, &mut commands);
+    commands.sort_by(|a, b| a.name.cmp(&b.name));
+
+    Ok(commands)
+}
+
+#[tauri::command]
+fn toggle_slash_command(command_name: String, enabled: bool) -> Result<(), String> {
+    let commands_dir = get_commands_dir().ok_or("Not in a valid project")?;
+    let disabled_dir = get_disabled_commands_dir().ok_or("Not in a valid project")?;
+
+    if !commands_dir.exists() {
+        fs::create_dir_all(&commands_dir).map_err(|e| e.to_string())?;
+    }
+    if !disabled_dir.exists() {
+        fs::create_dir_all(&disabled_dir).map_err(|e| e.to_string())?;
+    }
+
+    let filename = format!("{}.md", command_name);
+    let (src, dst) = if enabled {
+        (disabled_dir.join(&filename), commands_dir.join(&filename))
+    } else {
+        (commands_dir.join(&filename), disabled_dir.join(&filename))
+    };
+
+    if src.exists() {
+        fs::rename(&src, &dst).map_err(|e| format!("Failed to move command: {}", e))?;
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 fn load_config() -> Result<Config, String> {
     let path = get_config_path().ok_or("Not in a valid project")?;
@@ -418,7 +544,8 @@ fn load_config() -> Result<Config, String> {
     let mut categories = IndexMap::new();
     categories.insert("未分類".to_string(), Vec::new());
     let category_order = vec!["未分類".to_string()];
-    let default_config = Config { categories, category_order };
+    let command_categories = IndexMap::new();
+    let default_config = Config { categories, category_order, load_slash_commands: true, command_categories };
 
     if let Ok(json) = serde_json::to_string_pretty(&default_config) {
         let _ = fs::write(&path, json);
@@ -710,6 +837,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_skills,
             toggle_skill,
+            load_slash_commands,
+            toggle_slash_command,
             load_config,
             save_config,
             read_file,

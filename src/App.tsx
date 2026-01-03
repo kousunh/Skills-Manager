@@ -5,10 +5,11 @@ import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { SkillList } from './components/SkillList';
 import { SkillPreview } from './components/SkillPreview';
+import { SlashCommandPreview } from './components/SlashCommandPreview';
 import { CategoryEditor } from './components/CategoryEditor';
 import { ProjectSelector } from './components/ProjectSelector';
 import { useSkills } from './hooks/useSkills';
-import type { SkillFile } from './types';
+import type { SkillFile, SlashCommand } from './types';
 
 // 開発モード: レイアウト確認用（フォルダ選択をスキップ）
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
@@ -38,18 +39,26 @@ function App() {
 
   const {
     skills,
+    slashCommands,
+    config,
     categories,
     selectedCategory,
     setSelectedCategory,
     selectedSkill,
     setSelectedSkill,
+    selectedSlashCommand,
+    setSelectedSlashCommand,
     skillsInCategory,
+    commandsInCategory,
     skillCounts,
     enabledCounts,
     toggleSkill,
+    toggleSlashCommand,
+    setLoadSlashCommands,
     enableAllInCategory,
     disableAllInCategory,
     moveSkillToCategory,
+    moveCommandToCategory,
     addCategory,
     removeCategory,
     renameCategory,
@@ -91,9 +100,20 @@ function App() {
     );
   }, [skillsInCategory, searchQuery]);
 
-  // 全体の統計
-  const totalSkills = skills.length;
-  const enabledSkills = skills.filter(s => s.enabled).length;
+  // スラッシュコマンドの検索フィルター（カテゴリ内のみ）
+  const filteredSlashCommands = useMemo(() => {
+    if (!searchQuery.trim()) return commandsInCategory;
+    const query = searchQuery.toLowerCase();
+    return commandsInCategory.filter(
+      command =>
+        command.name.toLowerCase().includes(query) ||
+        command.description.toLowerCase().includes(query)
+    );
+  }, [commandsInCategory, searchQuery]);
+
+  // 全体の統計（スキル + スラッシュコマンド）
+  const totalSkills = skills.length + slashCommands.length;
+  const enabledSkills = skills.filter(s => s.enabled).length + slashCommands.filter(c => c.enabled).length;
 
   // セットアップチェック中
   if (isSetup === undefined) {
@@ -156,17 +176,30 @@ function App() {
         <div className="w-2/5 flex flex-col overflow-y-auto">
           <SkillList
             skills={filteredSkills}
+            slashCommands={filteredSlashCommands}
             selectedSkill={selectedSkill}
+            selectedSlashCommand={selectedSlashCommand}
             onSelectSkill={(skill) => {
               if (selectedSkill?.name === skill.name) {
                 setSelectedSkill(null);
                 setSelectedFile(null);
               } else {
                 setSelectedSkill(skill);
+                setSelectedSlashCommand(null);
+                setSelectedFile(null);
+              }
+            }}
+            onSelectSlashCommand={(command: SlashCommand) => {
+              if (selectedSlashCommand?.name === command.name) {
+                setSelectedSlashCommand(null);
+              } else {
+                setSelectedSlashCommand(command);
+                setSelectedSkill(null);
                 setSelectedFile(null);
               }
             }}
             onToggleSkill={toggleSkill}
+            onToggleSlashCommand={toggleSlashCommand}
             onEnableAll={enableAllInCategory}
             onDisableAll={disableAllInCategory}
             searchQuery={searchQuery}
@@ -179,15 +212,25 @@ function App() {
         </div>
 
         <div className="w-3/5 flex flex-col overflow-hidden">
-          <SkillPreview
-            skill={selectedSkill}
-            categories={categories}
-            currentCategory={selectedCategory}
-            onMoveToCategory={moveSkillToCategory}
-            onToggle={toggleSkill}
-            selectedFile={selectedFile}
-            onFileSelect={setSelectedFile}
-          />
+          {selectedSlashCommand ? (
+            <SlashCommandPreview
+              command={selectedSlashCommand}
+              categories={categories}
+              currentCategory={selectedCategory}
+              onMoveToCategory={moveCommandToCategory}
+              onToggle={toggleSlashCommand}
+            />
+          ) : (
+            <SkillPreview
+              skill={selectedSkill}
+              categories={categories}
+              currentCategory={selectedCategory}
+              onMoveToCategory={moveSkillToCategory}
+              onToggle={toggleSkill}
+              selectedFile={selectedFile}
+              onFileSelect={setSelectedFile}
+            />
+          )}
         </div>
       </div>
 
@@ -200,6 +243,8 @@ function App() {
           onRemoveCategory={removeCategory}
           onRenameCategory={renameCategory}
           onReorderCategories={reorderCategories}
+          loadSlashCommands={config.loadSlashCommands !== false}
+          onLoadSlashCommandsChange={setLoadSlashCommands}
         />
       )}
     </div>
