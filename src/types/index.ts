@@ -25,6 +25,7 @@ export interface Config {
   categories: Record<string, string[]>;
   categoryOrder?: string[];  // カテゴリの表示順序
   loadSlashCommands?: boolean;  // スラッシュコマンドを読み込むか（デフォルト: true）
+  commandCategories?: Record<string, string[]>;  // スラッシュコマンドのカテゴリ分け
 }
 
 export interface SkillConflictInfo {

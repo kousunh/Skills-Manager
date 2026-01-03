@@ -49,6 +49,7 @@ function App() {
     selectedSlashCommand,
     setSelectedSlashCommand,
     skillsInCategory,
+    commandsInCategory,
     skillCounts,
     enabledCounts,
     toggleSkill,
@@ -57,6 +58,7 @@ function App() {
     enableAllInCategory,
     disableAllInCategory,
     moveSkillToCategory,
+    moveCommandToCategory,
     addCategory,
     removeCategory,
     renameCategory,
@@ -98,16 +100,16 @@ function App() {
     );
   }, [skillsInCategory, searchQuery]);
 
-  // スラッシュコマンドの検索フィルター
+  // スラッシュコマンドの検索フィルター（カテゴリ内のみ）
   const filteredSlashCommands = useMemo(() => {
-    if (!searchQuery.trim()) return slashCommands;
+    if (!searchQuery.trim()) return commandsInCategory;
     const query = searchQuery.toLowerCase();
-    return slashCommands.filter(
+    return commandsInCategory.filter(
       command =>
         command.name.toLowerCase().includes(query) ||
         command.description.toLowerCase().includes(query)
     );
-  }, [slashCommands, searchQuery]);
+  }, [commandsInCategory, searchQuery]);
 
   // 全体の統計（スキル + スラッシュコマンド）
   const totalSkills = skills.length + slashCommands.length;
@@ -213,6 +215,9 @@ function App() {
           {selectedSlashCommand ? (
             <SlashCommandPreview
               command={selectedSlashCommand}
+              categories={categories}
+              currentCategory={selectedCategory}
+              onMoveToCategory={moveCommandToCategory}
               onToggle={toggleSlashCommand}
             />
           ) : (

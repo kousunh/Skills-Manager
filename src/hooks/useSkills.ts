@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Skill, SlashCommand, Config } from '../types';
 import { invoke } from '@tauri-apps/api/core';
 
-const normalizeConfig = (loadedSkills: Skill[], loadedConfig: Config): Config => {
+const normalizeConfig = (loadedSkills: Skill[], loadedCommands: SlashCommand[], loadedConfig: Config): Config => {
   const nextCategories: Record<string, string[]> = {};
   for (const [key, value] of Object.entries(loadedConfig.categories)) {
     nextCategories[key] = [...value];
@@ -42,7 +42,42 @@ const normalizeConfig = (loadedSkills: Skill[], loadedConfig: Config): Config =>
     ];
   }
 
-  return { categories: nextCategories, categoryOrder };
+  // コマンドカテゴリの正規化
+  const nextCommandCategories: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(loadedConfig.commandCategories || {})) {
+    if (key in nextCategories) {
+      nextCommandCategories[key] = [...value];
+    }
+  }
+
+  // 全カテゴリに対してコマンドカテゴリを初期化
+  for (const cat of categoryOrder) {
+    if (!(cat in nextCommandCategories)) {
+      nextCommandCategories[cat] = [];
+    }
+  }
+
+  // 未分類のコマンドを最初のカテゴリに追加
+  const categorizedCommands = new Set<string>();
+  for (const commandNames of Object.values(nextCommandCategories)) {
+    for (const name of commandNames) {
+      categorizedCommands.add(name);
+    }
+  }
+
+  const uncategorizedCommands = loadedCommands
+    .map(c => c.name)
+    .filter(name => !categorizedCommands.has(name));
+
+  if (uncategorizedCommands.length > 0 && categoryOrder.length > 0) {
+    const firstCategory = categoryOrder[0];
+    nextCommandCategories[firstCategory] = [
+      ...(nextCommandCategories[firstCategory] || []),
+      ...uncategorizedCommands
+    ];
+  }
+
+  return { categories: nextCategories, categoryOrder, commandCategories: nextCommandCategories };
 };
 
 export function useSkills(isReady: boolean) {
@@ -94,7 +129,8 @@ export function useSkills(isReady: boolean) {
         return updated || null;
       });
 
-      const normalizedConfig = normalizeConfig(loadedSkills, loadedConfig);
+      const loadedCommands = shouldLoadCommands ? await invoke<SlashCommand[]>('load_slash_commands').catch(() => []) : [];
+      const normalizedConfig = normalizeConfig(loadedSkills, loadedCommands, loadedConfig);
       // loadSlashCommandsを保持
       normalizedConfig.loadSlashCommands = loadedConfig.loadSlashCommands !== false;
       setConfig(normalizedConfig);
@@ -147,6 +183,11 @@ export function useSkills(isReady: boolean) {
     const skillNames = config.categories[selectedCategory] || [];
     return skills.filter(skill => skillNames.includes(skill.name));
   }, [skills, config.categories, selectedCategory]);
+
+  const commandsInCategory = useMemo(() => {
+    const commandNames = config.commandCategories?.[selectedCategory] || [];
+    return slashCommands.filter(command => commandNames.includes(command.name));
+  }, [slashCommands, config.commandCategories, selectedCategory]);
 
   // カテゴリごとのスキル数（実際に存在するスキルのみカウント）
   const skillCounts = useMemo(() => {
@@ -308,6 +349,26 @@ export function useSkills(isReady: boolean) {
     });
   }, [updateConfig]);
 
+  const moveCommandToCategory = useCallback((commandName: string, newCategory: string) => {
+    updateConfig(prev => {
+      const newCommandCategories = { ...prev.commandCategories };
+
+      // 既存のカテゴリから削除
+      for (const cat of Object.keys(newCommandCategories)) {
+        newCommandCategories[cat] = newCommandCategories[cat].filter(name => name !== commandName);
+      }
+
+      // 新しいカテゴリに追加
+      if (newCommandCategories[newCategory]) {
+        newCommandCategories[newCategory] = [...newCommandCategories[newCategory], commandName];
+      } else {
+        newCommandCategories[newCategory] = [commandName];
+      }
+
+      return { ...prev, commandCategories: newCommandCategories };
+    });
+  }, [updateConfig]);
+
   const deleteSkill = useCallback((skillName: string) => {
     setSkills(prev => prev.filter(skill => skill.name !== skillName));
     updateConfig(prev => {
@@ -397,6 +458,7 @@ export function useSkills(isReady: boolean) {
     selectedSlashCommand,
     setSelectedSlashCommand,
     skillsInCategory,
+    commandsInCategory,
     skillCounts,
     enabledCounts,
     toggleSkill,
@@ -405,6 +467,7 @@ export function useSkills(isReady: boolean) {
     enableAllInCategory,
     disableAllInCategory,
     moveSkillToCategory,
+    moveCommandToCategory,
     deleteSkill,
     addCategory,
     removeCategory,

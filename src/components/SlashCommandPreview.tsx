@@ -5,11 +5,17 @@ import type { SlashCommand } from '../types';
 
 interface SlashCommandPreviewProps {
   command: SlashCommand | null;
+  categories: string[];
+  currentCategory: string;
+  onMoveToCategory: (commandName: string, category: string) => void;
   onToggle: (commandName: string) => void;
 }
 
 export function SlashCommandPreview({
   command,
+  categories,
+  currentCategory,
+  onMoveToCategory,
   onToggle
 }: SlashCommandPreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -113,8 +119,21 @@ export function SlashCommandPreview({
             </div>
             <p className="text-sm text-gray-500 mt-1 line-clamp-2">{command.description}</p>
           </div>
-          {/* 右側: 編集ボタン */}
+          {/* 右側: カテゴリ変更 + 編集ボタン */}
           <div className="shrink-0 flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">カテゴリ</span>
+              <select
+                value={currentCategory}
+                onChange={(e) => onMoveToCategory(command.name, e.target.value)}
+                className="px-2 py-1 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all cursor-pointer"
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-500">へ移動</span>
+            </div>
             {isEditing ? (
               <div className="flex items-center gap-2">
                 <button
@@ -151,6 +170,12 @@ export function SlashCommandPreview({
 
       {/* Metadata bar */}
       <div className="px-5 py-3 bg-purple-50 border-b flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          <span className="text-slate-600">{currentCategory}</span>
+        </div>
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />

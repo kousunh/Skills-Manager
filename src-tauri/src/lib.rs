@@ -45,6 +45,8 @@ pub struct Config {
     pub category_order: Vec<String>,
     #[serde(default = "default_true")]
     pub load_slash_commands: bool,
+    #[serde(default)]
+    pub command_categories: IndexMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -542,7 +544,8 @@ fn load_config() -> Result<Config, String> {
     let mut categories = IndexMap::new();
     categories.insert("未分類".to_string(), Vec::new());
     let category_order = vec!["未分類".to_string()];
-    let default_config = Config { categories, category_order, load_slash_commands: true };
+    let command_categories = IndexMap::new();
+    let default_config = Config { categories, category_order, load_slash_commands: true, command_categories };
 
     if let Ok(json) = serde_json::to_string_pretty(&default_config) {
         let _ = fs::write(&path, json);
