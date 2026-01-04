@@ -278,10 +278,6 @@ export function CategoryEditor({
             ))}
           </div>
 
-          <p className="mt-4 text-xs text-gray-400 text-center">
-            矢印ボタンで並び替え
-          </p>
-
           {/* Slash commands toggle */}
           {onLoadSlashCommandsChange && (
             <div className="mt-6 pt-4 border-t border-gray-200">

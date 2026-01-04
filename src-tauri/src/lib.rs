@@ -705,15 +705,16 @@ fn copy_skill_to_other_agent(skill_name: String, enabled: bool, force: bool) -> 
 
 #[tauri::command]
 fn can_show_command_button() -> bool {
-    // .claudeの時のみ、かつskillsmanager.mdが存在しない場合のみtrue
+    // .claudeの時のみ、かつskillsmanager.mdがcommands/にもdisabled-commands/にも存在しない場合のみtrue
     let agent_type = get_agent_type_internal();
     if agent_type != "claude" {
         return false;
     }
 
     if let Some(base_dir) = get_base_dir() {
-        let md_path = base_dir.join("commands").join("skillsmanager.md");
-        return !md_path.exists();
+        let commands_path = base_dir.join("commands").join("skillsmanager.md");
+        let disabled_path = base_dir.join("disabled-commands").join("skillsmanager.md");
+        return !commands_path.exists() && !disabled_path.exists();
     }
 
     false
