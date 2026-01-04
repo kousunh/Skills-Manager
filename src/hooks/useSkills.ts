@@ -114,24 +114,26 @@ export function useSkills(isReady: boolean) {
 
       setSkills(loadedSkills);
 
-      // 各スキルのgit追跡状態をチェック
-      const gitStatusMap = new Map<string, boolean | null>();
-      await Promise.all(
-        loadedSkills.map(async (skill) => {
-          try {
-            const status = await invoke<GitStatusResult>('check_skill_git_status', {
-              skillName: skill.name,
-              currentEnabled: skill.enabled
-            });
-            if (status.isTracked) {
-              gitStatusMap.set(skill.name, status.gitEnabled);
+      // 各スキルのgit追跡状態をバックグラウンドでチェック（ロードをブロックしない）
+      (async () => {
+        const gitStatusMap = new Map<string, boolean | null>();
+        await Promise.all(
+          loadedSkills.map(async (skill) => {
+            try {
+              const status = await invoke<GitStatusResult>('check_skill_git_status', {
+                skillName: skill.name,
+                currentEnabled: skill.enabled
+              });
+              if (status.isTracked) {
+                gitStatusMap.set(skill.name, status.gitEnabled);
+              }
+            } catch {
+              // エラー時は無視
             }
-          } catch {
-            // エラー時は無視
-          }
-        })
-      );
-      setGitTrackedEnabled(gitStatusMap);
+          })
+        );
+        setGitTrackedEnabled(gitStatusMap);
+      })();
 
       // スラッシュコマンドをロード（設定がtrueの場合のみ）
       const shouldLoadCommands = loadedConfig.loadSlashCommands !== false;
