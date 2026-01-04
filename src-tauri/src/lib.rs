@@ -7,6 +7,12 @@ use std::process::Command;
 use walkdir::WalkDir;
 use chrono;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SkillFile {
     pub name: String,
@@ -746,10 +752,14 @@ fn check_skill_git_status(skill_name: String, current_enabled: bool) -> Result<G
     let disabled_path = format!("{}/disabled-skills/{}", agent_dir_name, skill_name);
 
     let check_tracked = |path: &str| -> bool {
-        Command::new("git")
-            .args(["ls-files", "--error-unmatch", path])
-            .current_dir(&project_root)
-            .output()
+        let mut cmd = Command::new("git");
+        cmd.args(["ls-files", "--error-unmatch", path])
+            .current_dir(&project_root);
+
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        cmd.output()
             .map(|o| o.status.success())
             .unwrap_or(false)
     };
