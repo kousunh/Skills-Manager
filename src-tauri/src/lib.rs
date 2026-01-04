@@ -53,6 +53,8 @@ pub struct Config {
     pub load_slash_commands: bool,
     #[serde(default)]
     pub command_categories: IndexMap<String, Vec<String>>,
+    #[serde(default)]
+    pub window_maximized: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -789,6 +791,69 @@ fn check_skill_git_status(skill_name: String, current_enabled: bool) -> Result<G
     })
 }
 
+/// スラッシュコマンドのgit追跡状態をチェック
+/// command_name: コマンド名（拡張子なし）
+/// current_enabled: 現在の有効/無効状態
+#[tauri::command]
+fn check_command_git_status(command_name: String, current_enabled: bool) -> Result<GitStatusResult, String> {
+    let base_dir = get_base_dir().ok_or("Not in a valid project")?;
+    let project_root = base_dir.parent().ok_or("Could not get project root")?.to_path_buf();
+
+    // .gitディレクトリが存在するかチェック
+    if !project_root.join(".git").exists() {
+        return Ok(GitStatusResult {
+            is_git_repo: false,
+            is_tracked: false,
+            git_enabled: None,
+            has_mismatch: false,
+        });
+    }
+
+    let agent_dir_name = base_dir.file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Could not get agent directory name")?;
+
+    // commands/コマンド名.md がgitで追跡されているかチェック
+    let commands_path = format!("{}/commands/{}.md", agent_dir_name, command_name);
+    let disabled_path = format!("{}/disabled-commands/{}.md", agent_dir_name, command_name);
+
+    let check_tracked = |path: &str| -> bool {
+        let mut cmd = Command::new("git");
+        cmd.args(["ls-files", "--error-unmatch", path])
+            .current_dir(&project_root);
+
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        cmd.output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    };
+
+    let tracked_in_commands = check_tracked(&commands_path);
+    let tracked_in_disabled = check_tracked(&disabled_path);
+
+    let (is_tracked, git_enabled) = if tracked_in_commands {
+        (true, Some(true))
+    } else if tracked_in_disabled {
+        (true, Some(false))
+    } else {
+        (false, None)
+    };
+
+    let has_mismatch = match git_enabled {
+        Some(git_is_enabled) => git_is_enabled != current_enabled,
+        None => false,
+    };
+
+    Ok(GitStatusResult {
+        is_git_repo: true,
+        is_tracked,
+        git_enabled,
+        has_mismatch,
+    })
+}
+
 #[tauri::command]
 fn can_show_command_button() -> bool {
     // .claudeの時のみ、かつskillsmanager.mdがcommands/にもdisabled-commands/にも存在しない場合のみtrue
@@ -941,7 +1006,8 @@ pub fn run() {
             copy_skill_to_other_agent,
             can_show_command_button,
             copy_app_to_commands,
-            check_skill_git_status
+            check_skill_git_status,
+            check_command_git_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

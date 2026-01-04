@@ -22,6 +22,7 @@ interface SkillListProps {
   availableAgents?: AgentType[];
   onSwitchAgent?: (target: AgentType) => void;
   getGitMismatch?: (skill: Skill) => boolean;
+  getCommandGitMismatch?: (command: SlashCommand) => boolean;
 }
 
 export function SkillList({
@@ -41,7 +42,8 @@ export function SkillList({
   agentType = 'none',
   availableAgents = [],
   onSwitchAgent,
-  getGitMismatch
+  getGitMismatch,
+  getCommandGitMismatch
 }: SkillListProps) {
   const enabledCount = skills.filter(s => s.enabled).length;
   const totalCount = skills.length;
@@ -158,6 +160,7 @@ export function SkillList({
                   onSelect={() => onSelectSlashCommand?.(command)}
                   onToggle={() => onToggleSlashCommand?.(command.name)}
                   searchHighlight={searchQuery}
+                  hasGitMismatch={getCommandGitMismatch?.(command)}
                 />
               ))}
             </>
