@@ -553,7 +553,7 @@ fn load_config() -> Result<Config, String> {
     categories.insert("未分類".to_string(), Vec::new());
     let category_order = vec!["未分類".to_string()];
     let command_categories = IndexMap::new();
-    let default_config = Config { categories, category_order, load_slash_commands: true, command_categories };
+    let default_config = Config { categories, category_order, load_slash_commands: true, command_categories, window_maximized: false };
 
     if let Ok(json) = serde_json::to_string_pretty(&default_config) {
         let _ = fs::write(&path, json);
