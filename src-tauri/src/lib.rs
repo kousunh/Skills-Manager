@@ -703,6 +703,38 @@ fn copy_skill_to_other_agent(skill_name: String, enabled: bool, force: bool) -> 
     Ok(())
 }
 
+/// スキルがgit管理されているかどうかをチェック
+/// skill_path: SKILL.mdファイルのパス
+#[tauri::command]
+fn check_skill_git_status(skill_path: String) -> Result<bool, String> {
+    let path = PathBuf::from(&skill_path);
+
+    // スキルフォルダのパスを取得（SKILL.mdの親ディレクトリ）
+    let skill_dir = path.parent().ok_or("Invalid skill path")?;
+
+    // プロジェクトルートを取得
+    let project_root = get_base_dir()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .ok_or("Could not get project root")?;
+
+    // プロジェクトルートが.gitディレクトリを持っているかチェック
+    if !project_root.join(".git").exists() {
+        return Ok(false);
+    }
+
+    // git ls-files でスキルフォルダ内のファイルがgit管理されているかチェック
+    let output = Command::new("git")
+        .args(["ls-files", "--error-unmatch"])
+        .arg(skill_dir)
+        .current_dir(&project_root)
+        .output();
+
+    match output {
+        Ok(result) => Ok(result.status.success()),
+        Err(_) => Ok(false), // gitコマンドがない場合もfalse
+    }
+}
+
 #[tauri::command]
 fn can_show_command_button() -> bool {
     // .claudeの時のみ、かつskillsmanager.mdがcommands/にもdisabled-commands/にも存在しない場合のみtrue
@@ -854,7 +886,8 @@ pub fn run() {
             check_skill_conflict,
             copy_skill_to_other_agent,
             can_show_command_button,
-            copy_app_to_commands
+            copy_app_to_commands,
+            check_skill_git_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
