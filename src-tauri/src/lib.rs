@@ -703,6 +703,82 @@ fn copy_skill_to_other_agent(skill_name: String, enabled: bool, force: bool) -> 
     Ok(())
 }
 
+/// Git追跡状態の結果
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GitStatusResult {
+    /// gitリポジトリ内にあるか
+    pub is_git_repo: bool,
+    /// gitで追跡されているか（skillsまたはdisabled-skillsのどちらかで）
+    pub is_tracked: bool,
+    /// gitで追跡されている位置（enabled = skills/, disabled = disabled-skills/）
+    /// 追跡されていない場合はNone
+    pub git_enabled: Option<bool>,
+    /// 現在の実際の位置と不一致があるか
+    pub has_mismatch: bool,
+}
+
+/// スキルのgit追跡状態をチェック
+/// skill_name: スキル名
+/// current_enabled: 現在の有効/無効状態
+#[tauri::command]
+fn check_skill_git_status(skill_name: String, current_enabled: bool) -> Result<GitStatusResult, String> {
+    let base_dir = get_base_dir().ok_or("Not in a valid project")?;
+    let project_root = base_dir.parent().ok_or("Could not get project root")?.to_path_buf();
+
+    // .gitディレクトリが存在するかチェック
+    if !project_root.join(".git").exists() {
+        return Ok(GitStatusResult {
+            is_git_repo: false,
+            is_tracked: false,
+            git_enabled: None,
+            has_mismatch: false,
+        });
+    }
+
+    // .claudeまたは.codexのディレクトリ名を取得
+    let agent_dir_name = base_dir.file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Could not get agent directory name")?;
+
+    // skills/スキル名 がgitで追跡されているかチェック
+    let skills_path = format!("{}/skills/{}", agent_dir_name, skill_name);
+    let disabled_path = format!("{}/disabled-skills/{}", agent_dir_name, skill_name);
+
+    let check_tracked = |path: &str| -> bool {
+        Command::new("git")
+            .args(["ls-files", "--error-unmatch", path])
+            .current_dir(&project_root)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    };
+
+    let tracked_in_skills = check_tracked(&skills_path);
+    let tracked_in_disabled = check_tracked(&disabled_path);
+
+    let (is_tracked, git_enabled) = if tracked_in_skills {
+        (true, Some(true))
+    } else if tracked_in_disabled {
+        (true, Some(false))
+    } else {
+        (false, None)
+    };
+
+    // 不一致のチェック: gitで追跡されている位置と現在の位置が異なる場合
+    let has_mismatch = match git_enabled {
+        Some(git_is_enabled) => git_is_enabled != current_enabled,
+        None => false, // 追跡されていなければ不一致なし
+    };
+
+    Ok(GitStatusResult {
+        is_git_repo: true,
+        is_tracked,
+        git_enabled,
+        has_mismatch,
+    })
+}
+
 #[tauri::command]
 fn can_show_command_button() -> bool {
     // .claudeの時のみ、かつskillsmanager.mdがcommands/にもdisabled-commands/にも存在しない場合のみtrue
@@ -854,7 +930,8 @@ pub fn run() {
             check_skill_conflict,
             copy_skill_to_other_agent,
             can_show_command_button,
-            copy_app_to_commands
+            copy_app_to_commands,
+            check_skill_git_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2,6 +2,13 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Skill, SlashCommand, Config } from '../types';
 import { invoke } from '@tauri-apps/api/core';
 
+interface GitStatusResult {
+  isGitRepo: boolean;
+  isTracked: boolean;
+  gitEnabled: boolean | null;
+  hasMismatch: boolean;
+}
+
 const normalizeConfig = (loadedSkills: Skill[], loadedCommands: SlashCommand[], loadedConfig: Config): Config => {
   const nextCategories: Record<string, string[]> = {};
   for (const [key, value] of Object.entries(loadedConfig.categories)) {
@@ -89,6 +96,8 @@ export function useSkills(isReady: boolean) {
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommand | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // git追跡状態: skillName -> gitで追跡されている位置（enabled=true/false）、追跡されていない場合はundefined
+  const [gitTrackedEnabled, setGitTrackedEnabled] = useState<Map<string, boolean | null>>(new Map());
 
   // リロード関数
   const reload = useCallback(async () => {
@@ -104,6 +113,25 @@ export function useSkills(isReady: boolean) {
       ]);
 
       setSkills(loadedSkills);
+
+      // 各スキルのgit追跡状態をチェック
+      const gitStatusMap = new Map<string, boolean | null>();
+      await Promise.all(
+        loadedSkills.map(async (skill) => {
+          try {
+            const status = await invoke<GitStatusResult>('check_skill_git_status', {
+              skillName: skill.name,
+              currentEnabled: skill.enabled
+            });
+            if (status.isTracked) {
+              gitStatusMap.set(skill.name, status.gitEnabled);
+            }
+          } catch {
+            // エラー時は無視
+          }
+        })
+      );
+      setGitTrackedEnabled(gitStatusMap);
 
       // スラッシュコマンドをロード（設定がtrueの場合のみ）
       const shouldLoadCommands = loadedConfig.loadSlashCommands !== false;
@@ -446,6 +474,17 @@ export function useSkills(isReady: boolean) {
     }));
   }, [updateConfig]);
 
+  // スキルごとのgit不一致状態を判定
+  const getGitMismatch = useCallback((skill: Skill): boolean => {
+    const trackedEnabled = gitTrackedEnabled.get(skill.name);
+    // 追跡されていない場合は不一致なし
+    if (trackedEnabled === undefined || trackedEnabled === null) {
+      return false;
+    }
+    // gitで追跡されている位置と現在の位置が異なる場合は不一致
+    return trackedEnabled !== skill.enabled;
+  }, [gitTrackedEnabled]);
+
   return {
     skills,
     slashCommands,
@@ -475,6 +514,7 @@ export function useSkills(isReady: boolean) {
     reorderCategories,
     reload,
     loading,
-    error
+    error,
+    getGitMismatch
   };
 }

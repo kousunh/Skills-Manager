@@ -14,9 +14,10 @@ interface SkillCardProps {
   onFileSelect?: (file: SkillFile | null) => void;  // null = SKILL.md
   selectedFile?: SkillFile | null;
   agentType?: AgentType;
+  hasGitMismatch?: boolean;
 }
 
-export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile, agentType = 'none' }: SkillCardProps) {
+export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile, agentType = 'none', hasGitMismatch = false }: SkillCardProps) {
   const [copiedPath, setCopiedPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -118,6 +119,12 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
           : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
       }`}
     >
+      {/* Git mismatch warning */}
+      {hasGitMismatch && (
+        <div className="px-4 py-2 text-xs text-red-600 bg-red-50 border-b border-red-100 rounded-t-xl">
+          gitの追跡状態と現在の位置が異なります。コミットしてからプルしてください。
+        </div>
+      )}
       {/* Main card content */}
       <div
         className="group flex items-center gap-4 p-4 cursor-pointer relative"

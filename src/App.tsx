@@ -65,7 +65,8 @@ function App() {
     reorderCategories,
     reload,
     loading,
-    error
+    error,
+    getGitMismatch
   } = useSkills(isSetup === true);
 
   // 1分ごとに自動更新
@@ -208,6 +209,7 @@ function App() {
             agentType={agentType}
             availableAgents={availableAgents}
             onSwitchAgent={handleSwitchAgent}
+            getGitMismatch={getGitMismatch}
           />
         </div>
 

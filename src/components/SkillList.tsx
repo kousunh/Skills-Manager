@@ -21,6 +21,7 @@ interface SkillListProps {
   agentType?: AgentType;
   availableAgents?: AgentType[];
   onSwitchAgent?: (target: AgentType) => void;
+  getGitMismatch?: (skill: Skill) => boolean;
 }
 
 export function SkillList({
@@ -39,7 +40,8 @@ export function SkillList({
   selectedFile,
   agentType = 'none',
   availableAgents = [],
-  onSwitchAgent
+  onSwitchAgent,
+  getGitMismatch
 }: SkillListProps) {
   const enabledCount = skills.filter(s => s.enabled).length;
   const totalCount = skills.length;
@@ -130,6 +132,7 @@ export function SkillList({
               onFileSelect={onFileSelect}
               selectedFile={selectedSkill?.name === skill.name ? selectedFile : undefined}
               agentType={agentType}
+              hasGitMismatch={getGitMismatch?.(skill)}
             />
           ))}
 
