@@ -8,9 +8,10 @@ interface SlashCommandCardProps {
   onSelect: () => void;
   onToggle: () => void;
   searchHighlight?: string;
+  hasGitMismatch?: boolean;
 }
 
-export function SlashCommandCard({ command, isSelected, onSelect, onToggle, searchHighlight }: SlashCommandCardProps) {
+export function SlashCommandCard({ command, isSelected, onSelect, onToggle, searchHighlight, hasGitMismatch = false }: SlashCommandCardProps) {
   const [copiedPath, setCopiedPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -64,6 +65,12 @@ export function SlashCommandCard({ command, isSelected, onSelect, onToggle, sear
           : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
       }`}
     >
+      {/* Git mismatch warning */}
+      {hasGitMismatch && (
+        <div className="px-4 py-2 text-xs text-red-600 bg-red-50 border-b border-red-100 rounded-t-xl">
+          gitの追跡状態と現在の位置が異なります。コミットしてからプルしてください。
+        </div>
+      )}
       {/* Main card content */}
       <div
         className="group flex items-center gap-4 p-4 cursor-pointer relative"

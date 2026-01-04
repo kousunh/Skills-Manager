@@ -98,6 +98,8 @@ export function useSkills(isReady: boolean) {
   const [error, setError] = useState<string | null>(null);
   // git追跡状態: skillName -> gitで追跡されている位置（enabled=true/false）、追跡されていない場合はundefined
   const [gitTrackedEnabled, setGitTrackedEnabled] = useState<Map<string, boolean | null>>(new Map());
+  // コマンド用git追跡状態
+  const [commandGitTrackedEnabled, setCommandGitTrackedEnabled] = useState<Map<string, boolean | null>>(new Map());
 
   // リロード関数
   const reload = useCallback(async () => {
@@ -147,6 +149,27 @@ export function useSkills(isReady: boolean) {
           const updated = loadedCommands.find(c => c.name === prev.name);
           return updated || null;
         });
+
+        // 各コマンドのgit追跡状態をバックグラウンドでチェック
+        (async () => {
+          const gitStatusMap = new Map<string, boolean | null>();
+          await Promise.all(
+            loadedCommands.map(async (command) => {
+              try {
+                const status = await invoke<GitStatusResult>('check_command_git_status', {
+                  commandName: command.name,
+                  currentEnabled: command.enabled
+                });
+                if (status.isTracked) {
+                  gitStatusMap.set(command.name, status.gitEnabled);
+                }
+              } catch {
+                // エラー時は無視
+              }
+            })
+          );
+          setCommandGitTrackedEnabled(gitStatusMap);
+        })();
       } else {
         setSlashCommands([]);
         setSelectedSlashCommand(null);
@@ -487,6 +510,15 @@ export function useSkills(isReady: boolean) {
     return trackedEnabled !== skill.enabled;
   }, [gitTrackedEnabled]);
 
+  // コマンドごとのgit不一致状態を判定
+  const getCommandGitMismatch = useCallback((command: SlashCommand): boolean => {
+    const trackedEnabled = commandGitTrackedEnabled.get(command.name);
+    if (trackedEnabled === undefined || trackedEnabled === null) {
+      return false;
+    }
+    return trackedEnabled !== command.enabled;
+  }, [commandGitTrackedEnabled]);
+
   return {
     skills,
     slashCommands,
@@ -517,6 +549,7 @@ export function useSkills(isReady: boolean) {
     reload,
     loading,
     error,
-    getGitMismatch
+    getGitMismatch,
+    getCommandGitMismatch
   };
 }

@@ -66,19 +66,9 @@ function App() {
     reload,
     loading,
     error,
-    getGitMismatch
+    getGitMismatch,
+    getCommandGitMismatch
   } = useSkills(isSetup === true);
-
-  // 1分ごとに自動更新
-  useEffect(() => {
-    if (isSetup !== true) return;
-
-    const interval = setInterval(() => {
-      reload();
-    }, 60000); // 60秒 = 1分
-
-    return () => clearInterval(interval);
-  }, [isSetup, reload]);
 
   // エージェントタイプ切り替え
   const handleSwitchAgent = useCallback(async (target: AgentType) => {
@@ -210,6 +200,7 @@ function App() {
             availableAgents={availableAgents}
             onSwitchAgent={handleSwitchAgent}
             getGitMismatch={getGitMismatch}
+            getCommandGitMismatch={getCommandGitMismatch}
           />
         </div>
 
