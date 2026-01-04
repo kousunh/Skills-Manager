@@ -10,7 +10,7 @@ import { SlashCommandPreview } from './components/SlashCommandPreview';
 import { CategoryEditor } from './components/CategoryEditor';
 import { ProjectSelector } from './components/ProjectSelector';
 import { useSkills } from './hooks/useSkills';
-import type { SkillFile, SlashCommand, Config } from './types';
+import type { SkillFile, SlashCommand } from './types';
 
 // 開発モード: レイアウト確認用（フォルダ選択をスキップ）
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
