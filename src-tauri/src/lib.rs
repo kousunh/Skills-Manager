@@ -53,6 +53,8 @@ pub struct Config {
     pub load_slash_commands: bool,
     #[serde(default)]
     pub command_categories: IndexMap<String, Vec<String>>,
+    #[serde(default)]
+    pub window_maximized: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

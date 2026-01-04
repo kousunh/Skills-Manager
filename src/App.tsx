@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { exit } from '@tauri-apps/plugin-process';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { SkillList } from './components/SkillList';
@@ -9,7 +10,7 @@ import { SlashCommandPreview } from './components/SlashCommandPreview';
 import { CategoryEditor } from './components/CategoryEditor';
 import { ProjectSelector } from './components/ProjectSelector';
 import { useSkills } from './hooks/useSkills';
-import type { SkillFile, SlashCommand } from './types';
+import type { SkillFile, SlashCommand, Config } from './types';
 
 // 開発モード: レイアウト確認用（フォルダ選択をスキップ）
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
@@ -79,6 +80,60 @@ function App() {
       console.error('Failed to switch agent:', e);
     }
   }, []);
+
+  // ウィンドウ状態の復元（初回のみ）
+  const windowStateRestored = useRef(false);
+  useEffect(() => {
+    if (windowStateRestored.current || !config.windowMaximized) return;
+    windowStateRestored.current = true;
+
+    const restoreWindow = async () => {
+      try {
+        const appWindow = getCurrentWindow();
+        if (config.windowMaximized) {
+          await appWindow.maximize();
+        }
+      } catch (e) {
+        console.error('Failed to restore window state:', e);
+      }
+    };
+    restoreWindow();
+  }, [config.windowMaximized]);
+
+  // ウィンドウ状態の監視と保存
+  useEffect(() => {
+    if (isSetup !== true) return;
+
+    const appWindow = getCurrentWindow();
+    let lastMaximized: boolean | null = null;
+
+    const checkAndSaveWindowState = async () => {
+      try {
+        const isMaximized = await appWindow.isMaximized();
+        if (lastMaximized !== null && lastMaximized !== isMaximized) {
+          // 状態が変わったらconfigに保存
+          await invoke('save_config', {
+            config: { ...config, windowMaximized: isMaximized }
+          });
+        }
+        lastMaximized = isMaximized;
+      } catch (e) {
+        console.error('Failed to check window state:', e);
+      }
+    };
+
+    // 初回チェック
+    checkAndSaveWindowState();
+
+    // リサイズイベントで状態をチェック
+    const unlisten = appWindow.onResized(() => {
+      checkAndSaveWindowState();
+    });
+
+    return () => {
+      unlisten.then(fn => fn());
+    };
+  }, [isSetup, config]);
 
   // 検索フィルター
   const filteredSkills = useMemo(() => {
