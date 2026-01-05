@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react';
 import type { Skill, SkillFile, SlashCommand } from '../types';
 import { SkillCard } from './SkillCard';
 import { SlashCommandCard } from './SlashCommandCard';
@@ -25,7 +26,7 @@ interface SkillListProps {
   getCommandGitMismatch?: (command: SlashCommand) => boolean;
 }
 
-export function SkillList({
+export const SkillList = memo(function SkillList({
   skills,
   slashCommands = [],
   selectedSkill,
@@ -169,4 +170,4 @@ export function SkillList({
       )}
     </div>
   );
-}
+});

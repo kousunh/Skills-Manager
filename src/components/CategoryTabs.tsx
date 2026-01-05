@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 interface CategoryTabsProps {
   categories: string[];
@@ -9,7 +9,7 @@ interface CategoryTabsProps {
   onAddCategory: (name: string) => void;
 }
 
-export function CategoryTabs({
+export const CategoryTabs = memo(function CategoryTabs({
   categories,
   selectedCategory,
   onSelectCategory,
@@ -114,4 +114,4 @@ export function CategoryTabs({
       </div>
     </div>
   );
-}
+});
