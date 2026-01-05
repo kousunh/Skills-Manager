@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 import type { Skill, SkillFile, SlashCommand } from '../types';
 import { SkillCard } from './SkillCard';
 import { SlashCommandCard } from './SlashCommandCard';
