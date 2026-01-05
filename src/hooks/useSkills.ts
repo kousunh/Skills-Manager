@@ -438,8 +438,10 @@ export function useSkills(isReady: boolean) {
 
   const addCategory = useCallback((name: string) => {
     updateConfig(prev => ({
+      ...prev,
       categories: { ...prev.categories, [name]: [] },
-      categoryOrder: [...(prev.categoryOrder || []), name]
+      categoryOrder: [...(prev.categoryOrder || []), name],
+      commandCategories: { ...(prev.commandCategories || {}), [name]: [] }
     }));
   }, [updateConfig]);
 
@@ -453,14 +455,19 @@ export function useSkills(isReady: boolean) {
       const skillsToMove = newCategories[name] || [];
       delete newCategories[name];
 
+      const newCommandCategories = { ...(prev.commandCategories || {}) };
+      const commandsToMove = newCommandCategories[name] || [];
+      delete newCommandCategories[name];
+
       const newOrder = (prev.categoryOrder || []).filter(c => c !== name);
 
-      // 最初のカテゴリにスキルを移動
+      // 最初のカテゴリにスキルとコマンドを移動
       if (newOrder.length > 0) {
         const firstCategory = newOrder[0];
         newCategories[firstCategory] = [...(newCategories[firstCategory] || []), ...skillsToMove];
+        newCommandCategories[firstCategory] = [...(newCommandCategories[firstCategory] || []), ...commandsToMove];
       }
-      return { categories: newCategories, categoryOrder: newOrder };
+      return { ...prev, categories: newCategories, categoryOrder: newOrder, commandCategories: newCommandCategories };
     });
 
     if (selectedCategory === name) {
@@ -482,9 +489,18 @@ export function useSkills(isReady: boolean) {
         }
       }
 
+      const newCommandCategories: Record<string, string[]> = {};
+      for (const [key, value] of Object.entries(prev.commandCategories || {})) {
+        if (key === oldName) {
+          newCommandCategories[newName] = value;
+        } else {
+          newCommandCategories[key] = value;
+        }
+      }
+
       const newOrder = (prev.categoryOrder || []).map(c => c === oldName ? newName : c);
 
-      return { categories: newCategories, categoryOrder: newOrder };
+      return { ...prev, categories: newCategories, categoryOrder: newOrder, commandCategories: newCommandCategories };
     });
 
     if (selectedCategory === oldName) {
