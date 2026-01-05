@@ -139,8 +139,9 @@ export function useSkills(isReady: boolean) {
 
       // スラッシュコマンドをロード（設定がtrueの場合のみ）
       const shouldLoadCommands = loadedConfig.loadSlashCommands !== false;
+      let loadedCommands: SlashCommand[] = [];
       if (shouldLoadCommands) {
-        const loadedCommands = await invoke<SlashCommand[]>('load_slash_commands');
+        loadedCommands = await invoke<SlashCommand[]>('load_slash_commands');
         setSlashCommands(loadedCommands);
 
         // selectedSlashCommandを新しいデータで更新
@@ -182,7 +183,6 @@ export function useSkills(isReady: boolean) {
         return updated || null;
       });
 
-      const loadedCommands = shouldLoadCommands ? await invoke<SlashCommand[]>('load_slash_commands').catch(() => []) : [];
       const normalizedConfig = normalizeConfig(loadedSkills, loadedCommands, loadedConfig);
       // loadSlashCommandsを保持
       normalizedConfig.loadSlashCommands = loadedConfig.loadSlashCommands !== false;
