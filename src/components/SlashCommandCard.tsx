@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { SlashCommand } from '../types';
 
@@ -11,7 +11,7 @@ interface SlashCommandCardProps {
   hasGitMismatch?: boolean;
 }
 
-export function SlashCommandCard({ command, isSelected, onSelect, onToggle, searchHighlight, hasGitMismatch = false }: SlashCommandCardProps) {
+export const SlashCommandCard = memo(function SlashCommandCard({ command, isSelected, onSelect, onToggle, searchHighlight, hasGitMismatch = false }: SlashCommandCardProps) {
   const [copiedPath, setCopiedPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -159,4 +159,4 @@ export function SlashCommandCard({ command, isSelected, onSelect, onToggle, sear
       )}
     </div>
   );
-}
+});

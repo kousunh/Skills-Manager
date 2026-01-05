@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { invoke } from '@tauri-apps/api/core';
 import type { Skill, SkillFile, SkillConflictInfo } from '../types';
@@ -17,7 +17,7 @@ interface SkillCardProps {
   hasGitMismatch?: boolean;
 }
 
-export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile, agentType = 'none', hasGitMismatch = false }: SkillCardProps) {
+export const SkillCard = memo(function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile, agentType = 'none', hasGitMismatch = false }: SkillCardProps) {
   const [copiedPath, setCopiedPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -338,4 +338,4 @@ export function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlig
       )}
     </div>
   );
-}
+});
