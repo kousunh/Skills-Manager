@@ -109,83 +109,36 @@ export function useSkills(isReady: boolean) {
       setLoading(true);
       setError(null);
 
-      const [loadedSkills, loadedConfig] = await Promise.all([
+      // スキル、コンフィグ、コマンドを全て並列でロード
+      const [loadedSkills, loadedConfig, loadedCommands] = await Promise.all([
         invoke<Skill[]>('load_skills'),
-        invoke<Config>('load_config')
+        invoke<Config>('load_config'),
+        invoke<SlashCommand[]>('load_slash_commands').catch(() => [] as SlashCommand[])
       ]);
 
       setSkills(loadedSkills);
 
-      // 各スキルのgit追跡状態をバックグラウンドでチェック（ロードをブロックしない）
-      (async () => {
-        const gitStatusMap = new Map<string, boolean | null>();
-        await Promise.all(
-          loadedSkills.map(async (skill) => {
-            try {
-              const status = await invoke<GitStatusResult>('check_skill_git_status', {
-                skillName: skill.name,
-                currentEnabled: skill.enabled
-              });
-              if (status.isTracked) {
-                gitStatusMap.set(skill.name, status.gitEnabled);
-              }
-            } catch {
-              // エラー時は無視
-            }
-          })
-        );
-        setGitTrackedEnabled(gitStatusMap);
-      })();
-
-      // スラッシュコマンドをロード（設定がtrueの場合のみ）
       const shouldLoadCommands = loadedConfig.loadSlashCommands !== false;
-      let loadedCommands: SlashCommand[] = [];
       if (shouldLoadCommands) {
-        loadedCommands = await invoke<SlashCommand[]>('load_slash_commands');
         setSlashCommands(loadedCommands);
-
-        // selectedSlashCommandを新しいデータで更新
         setSelectedSlashCommand(prev => {
           if (!prev) return null;
           const updated = loadedCommands.find(c => c.name === prev.name);
           return updated || null;
         });
-
-        // 各コマンドのgit追跡状態をバックグラウンドでチェック
-        (async () => {
-          const gitStatusMap = new Map<string, boolean | null>();
-          await Promise.all(
-            loadedCommands.map(async (command) => {
-              try {
-                const status = await invoke<GitStatusResult>('check_command_git_status', {
-                  commandName: command.name,
-                  currentEnabled: command.enabled
-                });
-                if (status.isTracked) {
-                  gitStatusMap.set(command.name, status.gitEnabled);
-                }
-              } catch {
-                // エラー時は無視
-              }
-            })
-          );
-          setCommandGitTrackedEnabled(gitStatusMap);
-        })();
       } else {
         setSlashCommands([]);
         setSelectedSlashCommand(null);
       }
 
-      // selectedSkillを新しいデータで更新
       setSelectedSkill(prev => {
         if (!prev) return null;
         const updated = loadedSkills.find(s => s.name === prev.name);
         return updated || null;
       });
 
-      const normalizedConfig = normalizeConfig(loadedSkills, loadedCommands, loadedConfig);
-      // loadSlashCommandsを保持
-      normalizedConfig.loadSlashCommands = loadedConfig.loadSlashCommands !== false;
+      const normalizedConfig = normalizeConfig(loadedSkills, shouldLoadCommands ? loadedCommands : [], loadedConfig);
+      normalizedConfig.loadSlashCommands = shouldLoadCommands;
       setConfig(normalizedConfig);
 
       // Set initial category
@@ -193,6 +146,53 @@ export function useSkills(isReady: boolean) {
       if (cats.length > 0 && !cats.includes(selectedCategory)) {
         setSelectedCategory(cats[0]);
       }
+
+      // Git状態チェックはUIレンダリング後に遅延実行
+      requestAnimationFrame(() => {
+        // スキルのgit追跡状態をバックグラウンドでチェック
+        (async () => {
+          const gitStatusMap = new Map<string, boolean | null>();
+          await Promise.all(
+            loadedSkills.map(async (skill) => {
+              try {
+                const status = await invoke<GitStatusResult>('check_skill_git_status', {
+                  skillName: skill.name,
+                  currentEnabled: skill.enabled
+                });
+                if (status.isTracked) {
+                  gitStatusMap.set(skill.name, status.gitEnabled);
+                }
+              } catch {
+                // エラー時は無視
+              }
+            })
+          );
+          setGitTrackedEnabled(gitStatusMap);
+        })();
+
+        // コマンドのgit追跡状態をバックグラウンドでチェック
+        if (shouldLoadCommands && loadedCommands.length > 0) {
+          (async () => {
+            const gitStatusMap = new Map<string, boolean | null>();
+            await Promise.all(
+              loadedCommands.map(async (command) => {
+                try {
+                  const status = await invoke<GitStatusResult>('check_command_git_status', {
+                    commandName: command.name,
+                    currentEnabled: command.enabled
+                  });
+                  if (status.isTracked) {
+                    gitStatusMap.set(command.name, status.gitEnabled);
+                  }
+                } catch {
+                  // エラー時は無視
+                }
+              })
+            );
+            setCommandGitTrackedEnabled(gitStatusMap);
+          })();
+        }
+      });
     } catch (err) {
       console.error('Failed to load data:', err);
       setError(String(err));

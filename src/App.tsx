@@ -28,11 +28,13 @@ function App() {
   useEffect(() => {
     if (DEV_MODE) return; // 開発モードではチェックをスキップ
     const checkSetup = async () => {
-      const setup = await invoke<boolean>('check_setup');
+      const [setup, type, available] = await Promise.all([
+        invoke<boolean>('check_setup'),
+        invoke<AgentType>('get_agent_type'),
+        invoke<string[]>('get_available_agents')
+      ]);
       setIsSetup(setup);
-      const type = await invoke<AgentType>('get_agent_type');
       setAgentType(type);
-      const available = await invoke<string[]>('get_available_agents');
       setAvailableAgents(available as AgentType[]);
     };
     checkSetup();
