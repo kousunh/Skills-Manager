@@ -15,9 +15,10 @@ interface SkillCardProps {
   selectedFile?: SkillFile | null;
   agentType?: AgentType;
   hasGitMismatch?: boolean;
+  toggleError?: string;
 }
 
-export const SkillCard = memo(function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile, agentType = 'none', hasGitMismatch = false }: SkillCardProps) {
+export const SkillCard = memo(function SkillCard({ skill, isSelected, onSelect, onToggle, searchHighlight, onFileSelect, selectedFile, agentType = 'none', hasGitMismatch = false, toggleError }: SkillCardProps) {
   const [copiedPath, setCopiedPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -123,6 +124,12 @@ export const SkillCard = memo(function SkillCard({ skill, isSelected, onSelect, 
       {hasGitMismatch && (
         <div className="px-4 py-2 text-xs text-red-600 bg-red-50 border-b border-red-100 rounded-t-xl">
           gitの追跡状態と現在の位置が異なります。コミットしてからプルしてください。
+        </div>
+      )}
+      {/* Toggle error warning */}
+      {toggleError && (
+        <div className="px-4 py-2 text-xs text-orange-600 bg-orange-50 border-b border-orange-100 rounded-t-xl">
+          {toggleError}
         </div>
       )}
       {/* Main card content */}

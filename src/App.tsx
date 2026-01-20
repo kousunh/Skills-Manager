@@ -70,7 +70,9 @@ function App() {
     loading,
     error,
     getGitMismatch,
-    getCommandGitMismatch
+    getCommandGitMismatch,
+    getToggleError,
+    getCommandToggleError
   } = useSkills(isSetup === true);
 
   // エージェントタイプ切り替え
@@ -258,6 +260,8 @@ function App() {
             onSwitchAgent={handleSwitchAgent}
             getGitMismatch={getGitMismatch}
             getCommandGitMismatch={getCommandGitMismatch}
+            getToggleError={getToggleError}
+            getCommandToggleError={getCommandToggleError}
           />
         </div>
 

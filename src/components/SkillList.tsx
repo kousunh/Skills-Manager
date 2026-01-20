@@ -24,6 +24,8 @@ interface SkillListProps {
   onSwitchAgent?: (target: AgentType) => void;
   getGitMismatch?: (skill: Skill) => boolean;
   getCommandGitMismatch?: (command: SlashCommand) => boolean;
+  getToggleError?: (skill: Skill) => string | undefined;
+  getCommandToggleError?: (command: SlashCommand) => string | undefined;
 }
 
 export const SkillList = memo(function SkillList({
@@ -44,7 +46,9 @@ export const SkillList = memo(function SkillList({
   availableAgents = [],
   onSwitchAgent,
   getGitMismatch,
-  getCommandGitMismatch
+  getCommandGitMismatch,
+  getToggleError,
+  getCommandToggleError
 }: SkillListProps) {
   const enabledCount = skills.filter(s => s.enabled).length;
   const totalCount = skills.length;
@@ -136,6 +140,7 @@ export const SkillList = memo(function SkillList({
               selectedFile={selectedSkill?.name === skill.name ? selectedFile : undefined}
               agentType={agentType}
               hasGitMismatch={getGitMismatch?.(skill)}
+              toggleError={getToggleError?.(skill)}
             />
           ))}
 
@@ -162,6 +167,7 @@ export const SkillList = memo(function SkillList({
                   onToggle={() => onToggleSlashCommand?.(command.name)}
                   searchHighlight={searchQuery}
                   hasGitMismatch={getCommandGitMismatch?.(command)}
+                  toggleError={getCommandToggleError?.(command)}
                 />
               ))}
             </>
