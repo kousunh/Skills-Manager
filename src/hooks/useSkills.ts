@@ -304,8 +304,10 @@ export function useSkills(isReady: boolean) {
       setEnabledForSkillNames([skillName], newEnabled);
     } catch (err) {
       console.error('Failed to toggle skill:', err);
+      // Reload to restore correct state
+      reload();
     }
-  }, [skills, setEnabledForSkillNames]);
+  }, [skills, setEnabledForSkillNames, reload]);
 
   // スラッシュコマンドのパス更新
   const updateCommandPath = useCallback((command: SlashCommand, newEnabled: boolean): SlashCommand => {
@@ -340,8 +342,10 @@ export function useSkills(isReady: boolean) {
       );
     } catch (err) {
       console.error('Failed to toggle slash command:', err);
+      // Reload to restore correct state
+      reload();
     }
-  }, [slashCommands, updateCommandPath]);
+  }, [slashCommands, updateCommandPath, reload]);
 
   const setLoadSlashCommands = useCallback(async (value: boolean) => {
     updateConfig(prev => ({ ...prev, loadSlashCommands: value }));
