@@ -100,6 +100,10 @@ export function useSkills(isReady: boolean) {
   const [gitTrackedEnabled, setGitTrackedEnabled] = useState<Map<string, boolean | null>>(new Map());
   // コマンド用git追跡状態
   const [commandGitTrackedEnabled, setCommandGitTrackedEnabled] = useState<Map<string, boolean | null>>(new Map());
+  // トグルエラー状態: skillName -> エラーメッセージ
+  const [toggleErrors, setToggleErrors] = useState<Map<string, string>>(new Map());
+  // コマンド用トグルエラー状態
+  const [commandToggleErrors, setCommandToggleErrors] = useState<Map<string, string>>(new Map());
 
   // リロード関数
   const reload = useCallback(async () => {
@@ -299,13 +303,28 @@ export function useSkills(isReady: boolean) {
 
     const newEnabled = !skill.enabled;
 
+    // Clear previous error for this skill
+    setToggleErrors(prev => {
+      const next = new Map(prev);
+      next.delete(skillName);
+      return next;
+    });
+
     try {
       await invoke('toggle_skill', { skillName, enabled: newEnabled });
       setEnabledForSkillNames([skillName], newEnabled);
     } catch (err) {
       console.error('Failed to toggle skill:', err);
+      // Set error state for this skill
+      setToggleErrors(prev => {
+        const next = new Map(prev);
+        next.set(skillName, 'トグルに失敗しました。フォルダの移動ができません。');
+        return next;
+      });
+      // Reload to restore correct state
+      reload();
     }
-  }, [skills, setEnabledForSkillNames]);
+  }, [skills, setEnabledForSkillNames, reload]);
 
   // スラッシュコマンドのパス更新
   const updateCommandPath = useCallback((command: SlashCommand, newEnabled: boolean): SlashCommand => {
@@ -330,6 +349,13 @@ export function useSkills(isReady: boolean) {
 
     const newEnabled = !command.enabled;
 
+    // Clear previous error for this command
+    setCommandToggleErrors(prev => {
+      const next = new Map(prev);
+      next.delete(commandName);
+      return next;
+    });
+
     try {
       await invoke('toggle_slash_command', { commandName, enabled: newEnabled });
       setSlashCommands(prev => prev.map(c =>
@@ -340,8 +366,16 @@ export function useSkills(isReady: boolean) {
       );
     } catch (err) {
       console.error('Failed to toggle slash command:', err);
+      // Set error state for this command
+      setCommandToggleErrors(prev => {
+        const next = new Map(prev);
+        next.set(commandName, 'トグルに失敗しました。ファイルの移動ができません。');
+        return next;
+      });
+      // Reload to restore correct state
+      reload();
     }
-  }, [slashCommands, updateCommandPath]);
+  }, [slashCommands, updateCommandPath, reload]);
 
   const setLoadSlashCommands = useCallback(async (value: boolean) => {
     updateConfig(prev => ({ ...prev, loadSlashCommands: value }));
@@ -535,6 +569,16 @@ export function useSkills(isReady: boolean) {
     return trackedEnabled !== command.enabled;
   }, [commandGitTrackedEnabled]);
 
+  // スキルのトグルエラーを取得
+  const getToggleError = useCallback((skill: Skill): string | undefined => {
+    return toggleErrors.get(skill.name);
+  }, [toggleErrors]);
+
+  // コマンドのトグルエラーを取得
+  const getCommandToggleError = useCallback((command: SlashCommand): string | undefined => {
+    return commandToggleErrors.get(command.name);
+  }, [commandToggleErrors]);
+
   return {
     skills,
     slashCommands,
@@ -566,6 +610,8 @@ export function useSkills(isReady: boolean) {
     loading,
     error,
     getGitMismatch,
-    getCommandGitMismatch
+    getCommandGitMismatch,
+    getToggleError,
+    getCommandToggleError
   };
 }

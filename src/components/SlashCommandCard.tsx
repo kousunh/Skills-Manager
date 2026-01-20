@@ -9,9 +9,10 @@ interface SlashCommandCardProps {
   onToggle: () => void;
   searchHighlight?: string;
   hasGitMismatch?: boolean;
+  toggleError?: string;
 }
 
-export const SlashCommandCard = memo(function SlashCommandCard({ command, isSelected, onSelect, onToggle, searchHighlight, hasGitMismatch = false }: SlashCommandCardProps) {
+export const SlashCommandCard = memo(function SlashCommandCard({ command, isSelected, onSelect, onToggle, searchHighlight, hasGitMismatch = false, toggleError }: SlashCommandCardProps) {
   const [copiedPath, setCopiedPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,12 @@ export const SlashCommandCard = memo(function SlashCommandCard({ command, isSele
       {hasGitMismatch && (
         <div className="px-4 py-2 text-xs text-red-600 bg-red-50 border-b border-red-100 rounded-t-xl">
           gitの追跡状態と現在の位置が異なります。コミットしてからプルしてください。
+        </div>
+      )}
+      {/* Toggle error warning */}
+      {toggleError && (
+        <div className="px-4 py-2 text-xs text-orange-600 bg-orange-50 border-b border-orange-100 rounded-t-xl">
+          {toggleError}
         </div>
       )}
       {/* Main card content */}

@@ -427,9 +427,13 @@ fn toggle_skill(skill_name: String, enabled: bool) -> Result<(), String> {
 
     if src.exists() {
         fs::rename(&src, &dst).map_err(|e| format!("Failed to move skill: {}", e))?;
+        Ok(())
+    } else if dst.exists() {
+        // Already in the target location
+        Ok(())
+    } else {
+        Err(format!("Skill '{}' not found in expected location", skill_name))
     }
-
-    Ok(())
 }
 
 fn parse_command_description(content: &str) -> String {
@@ -528,9 +532,13 @@ fn toggle_slash_command(command_name: String, enabled: bool) -> Result<(), Strin
 
     if src.exists() {
         fs::rename(&src, &dst).map_err(|e| format!("Failed to move command: {}", e))?;
+        Ok(())
+    } else if dst.exists() {
+        // Already in the target location
+        Ok(())
+    } else {
+        Err(format!("Command '{}' not found in expected location", command_name))
     }
-
-    Ok(())
 }
 
 #[tauri::command]
